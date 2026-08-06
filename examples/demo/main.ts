@@ -1,5 +1,12 @@
 import { html } from "lit-html";
-import { component, mutableStateOf, remember } from "../../src";
+import { component, configureMatchbox, mutableStateOf, remember } from "../../src";
+import baseCss from "./index.css?inline"
+
+const globalSheet = new CSSStyleSheet();
+globalSheet.replaceSync(baseCss)
+configureMatchbox({
+  defaultAdoptedStylesheets: [globalSheet]
+})
 
 component("outer-counter", ({ initial, label }: { initial: number, label: string }) => {
   const [value, setValue] = remember(() => mutableStateOf(initial), [initial]);

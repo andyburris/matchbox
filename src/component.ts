@@ -1,5 +1,6 @@
 import { TemplateResult } from 'lit-html';
 import { ReactivityController } from './reactivity';
+import { activeMatchboxOptions } from './config';
 
 export type ComponentRenderFn = (props: any, host: HTMLElement) => TemplateResult;
 
@@ -19,7 +20,7 @@ export function component(
       super();
       this.attachShadow({ mode: 'open' });
       if (this.shadowRoot) {
-        this.shadowRoot.adoptedStyleSheets = options.adoptedStyleSheets ?? []; // TODO: add global style sheet config
+        this.shadowRoot.adoptedStyleSheets = options.adoptedStyleSheets ?? activeMatchboxOptions.defaultAdoptedStylesheets;
       }
 
       // Initialize the core controller layer
