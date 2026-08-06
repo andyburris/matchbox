@@ -7,13 +7,19 @@ export interface HookState {
 }
 
 export const runtime = {
-  currentController: null as any,
+  currentController: null as (ReactivityController | null),
   currentHookIndex: 0
 };
 
+export type HooksCacheRecord<T> = {
+  keys: any[],
+  value: T,
+  onDispose?: (cachedValue: T) => void;
+}
 export class ReactivityController {
   private _props: Record<string, any> = {};
   private _definedProps = new Set<string>();
+  public hooksCache: HooksCacheRecord<any>[] = []
   public proxy: any;
 
   constructor(private host: HTMLElement, private renderFn: ComponentRenderFn) {
@@ -59,7 +65,8 @@ export class ReactivityController {
       // Always clean up runtime focus, even if a rendering error throws
       runtime.currentController = null;
       runtime.currentHookIndex = 0;
-    }  }
+    }  
+  }
 
   private syncAttributesToProps(): void {
     for (const attr of this.host.attributes) {

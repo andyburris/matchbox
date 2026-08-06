@@ -29,6 +29,18 @@ export function component(
     connectedCallback(): void {
       this._controller.performUpdate();
     }
+
+    disconnectedCallback() {
+      const cache = this._controller.hooksCache;
+      if (cache) {
+        // Run dispose on unmount for any hook that needs it
+        cache.forEach((record: any) => {
+          if (record && typeof record.onDispose === 'function') {
+            record.onDispose(record.value);
+          }
+        });
+      }
+    }
   }
 
   customElements.define(tagName, MinimalReactiveElement);
