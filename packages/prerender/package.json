@@ -1,0 +1,32 @@
+{
+  "name": "@matchbox/prerender",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./vite": { "types": "./dist/vite.d.ts", "import": "./dist/vite.js" }
+  },
+  "bin": { "matchbox-prerender": "./dist/cli.js" },
+  "files": ["dist", "src"],
+  "scripts": { "build": "tsc -p tsconfig.json" },
+  "dependencies": {
+    "happy-dom": "^20.11.1",
+    "js-beautify": "^2.0.3"
+  },
+  "devDependencies": {
+    "@types/js-beautify": "^1.14.3",
+    "@types/node": "^26.1.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1"
+  },
+  "peerDependencies": {
+    "vite": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  }
+}

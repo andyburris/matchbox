@@ -4,14 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --minify false && tsx ../../packages/ssr/src/prerender.ts ./dist/index.html --outDir ./dist"
+    "build": "vite build --minify false"
   },
   "dependencies": {
     "@matchbox/core": "*"
   },
   "devDependencies": {
-    "@matchbox/ssr": "*",
-    "tsx": "^4.23.9",
+    "@matchbox/prerender": "*",
     "typescript": "^5.9.3",
     "vite": "^8.2.1"
   }

@@ -33,7 +33,7 @@ and use in `index.html` with:
 
 ## Architecture
 Matchbox uses a top-down, functional architecture for creating components.
-This should be very familiar if you're coming from React or Jetpack Compose, but maybe less so if you're coming from Vanilla JS, or class-based components like Lit or the old React.
+This should be very familiar if you're coming from React or Jetpack Compose, but maybe less so if you're coming from Vanilla JS, or class-based components like Lit or old React.
 
 <details>
   <summary>A brief introduction to declarative UI</summary>
@@ -70,7 +70,7 @@ component(({ num }: { num: number }) => {
 > *Note: for React users, `remember` is almost identical conceptually to `useMemo`.*
 
 ### `State`
-Often, you'll want to `remember` a `State`, which is a simple `[value, setValue]` tuple that rerenders the component whenever you set its value.
+`State<T>` holds a value of type `T`. You can access it with `.value`, and set it with `.setValue()`.  Setting the value rerenders any components that rely on it. `.value` returns a plain `T`—you can use it like any other plain value, and Matchbox will keep track of which components rely on it.
 ```ts
 component(({ initial }: { initial: number }) => {
   const [num, setNum] = remember(() => mutableStateOf(initial))
@@ -79,7 +79,7 @@ component(({ initial }: { initial: number }) => {
   `
 })
 ```
-> *One thing to note: it's completely possible to create a `State` outside of a `remember()` block, but it will get recalculated and reset on every render in that case, making it mostly useless.*
+> *Note: You almost always want to create a `State` inside of a `remember()` block. It's possible to create it outside of one, but it will get recalculated and reset on every render in that case, making it mostly useless.*
 
 ### Composing primitives
 With just the `remember()` and `State<T>` primitives, you can compose them into much more complex functionality. 
@@ -97,18 +97,18 @@ For React users, many hooks you're used to can be re-implemented this way. For e
 ## Features
 Matchbox includes a selevtive handful of niceties to solve some of the main ergonomic issues with web components.
 
-### Pre-rendering
-By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox/ssr` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (such as `localStorage`), won't be prerendered. 
+### Prerendering
+By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (such as `localStorage`), won't be prerendered. 
 
 It can be used on the command line with:
 ```bash
-tsx prerender.ts index1.html index2.html etc.html --outDir ./dist
+matchbox-prerender index1.html index2.html --outDir ./dist
 ```
 
 or as a Vite plugin with
 
 ```ts
-import { matchboxPrerenderPlugin } from '@matchbox/ssr';
+import { matchboxPrerenderPlugin } from '@matchbox/prerender/vite';
 export default defineConfig({
   plugins: [
     matchboxPrerenderPlugin(),

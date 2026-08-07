@@ -1,13 +1,12 @@
-import { defineConfig } from 'vite';
 import { resolve } from 'path';
-// Import the pre-renderer plugin from your local sibling workspace
-import { preRender } from '@matchbox/ssr';
+import { defineConfig } from 'vite';
+// Import the prerenderer plugin from your local sibling workspace
+import { matchboxPrerenderPlugin } from '@matchbox/prerender/vite';
 
 export default defineConfig({
   root: resolve(import.meta.dirname),
   plugins: [
-    // Runs automatically during 'vite build' pipelines!
-    // yourFrameworkPreRenderPlugin(preRender)
+    matchboxPrerenderPlugin(),
   ],
   build: {
     outDir: 'dist',

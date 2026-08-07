@@ -13,6 +13,7 @@ component("outer-counter", ({ initial, label }: { initial: number, label: string
   
   return html`
     <div>
+      <input type="text"/>
       <p>${label}: ${value}</p>
       <inner-counter .labels=${{ outer: label, inner: "Inner" }} outer-num=${value}></inner-counter>
       <button @click=${() => setValue(value + 1)}>Increment outer</button>

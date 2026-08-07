@@ -39,7 +39,17 @@ export function patchCustomElementUpgrade(window: Window): void {
         }
         replayObservedAttributes(this);
       }
-      originalConnected?.call(this);
+
+      try {
+        originalConnected?.call(this);
+      } catch (error) {
+        // A component that can't prerender leaves a partial shadow root behind;
+        // drop it so the client renders this one from scratch.
+        // If happy-dom fixes the properties issue, we still need to keep this logic.
+        this.shadowRoot?.replaceChildren();
+        console.warn(`[matchbox] skipped prerendering <${name}>:`, (error as Error).message);
+      }
+
     };
 
     originalDefine(name, elementClass, options);
@@ -68,3 +78,26 @@ function deepQueryTag(root: ParentNode, tagName: string, found: Element[] = []):
   }
   return found;
 }
+
+/**
+ * happy-dom's CSS parser drops @layer, @property, and nesting, so a sheet's cssRules
+ * can't be trusted to reproduce it. Record what was handed to the sheet instead.
+ */
+export const RAW_CSS = Symbol.for('matchbox.rawCSS');
+
+export function captureStyleSheetSources(window: Window): void {
+  const prototype = window.CSSStyleSheet.prototype;
+
+  const originalReplaceSync = prototype.replaceSync;
+  prototype.replaceSync = function (text) {
+    (this as any)[RAW_CSS] = text;
+    return originalReplaceSync.call(this, text);
+  };
+
+  const originalReplace = prototype.replace;
+  prototype.replace = function (text) {
+    (this as any)[RAW_CSS] = text;
+    return originalReplace.call(this, text);
+  };
+}
+

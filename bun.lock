@@ -14,8 +14,7 @@
         "@matchbox/core": "*",
       },
       "devDependencies": {
-        "@matchbox/ssr": "*",
-        "tsx": "^4.23.9",
+        "@matchbox/prerender": "*",
         "typescript": "^5.9.3",
         "vite": "^8.2.1",
       },
@@ -32,8 +31,8 @@
         "vite-plugin-dts": "^5.0.3",
       },
     },
-    "packages/ssr": {
-      "name": "@matchbox/ssr",
+    "packages/prerender": {
+      "name": "@matchbox/prerender",
       "version": "1.0.0",
       "dependencies": {
         "happy-dom": "^20.11.1",
@@ -41,6 +40,7 @@
       },
       "devDependencies": {
         "@types/js-beautify": "^1.14.3",
+        "@types/node": "^26.1.2",
         "typescript": "^5.9.3",
         "vite": "^8.2.1",
       },
@@ -117,7 +117,7 @@
 
     "@matchbox/core": ["@matchbox/core@workspace:packages/core"],
 
-    "@matchbox/ssr": ["@matchbox/ssr@workspace:packages/ssr"],
+    "@matchbox/prerender": ["@matchbox/prerender@workspace:packages/prerender"],
 
     "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
 
