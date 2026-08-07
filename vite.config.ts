@@ -16,7 +16,7 @@ export default defineConfig(({ command }) => {
       build: {
         lib: {
           entry: resolve(__dirname, 'src/index.ts'),
-          name: 'MyTsLibrary',
+          name: 'Matchbox',
           fileName: (format) => `index.${format}.js`,
           formats: ['es', 'cjs'],
         },

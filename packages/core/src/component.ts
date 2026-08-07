@@ -1,6 +1,6 @@
 import { TemplateResult } from 'lit-html';
-import { ReactivityController } from './reactivity';
 import { activeMatchboxOptions } from './config';
+import { ReactivityController } from './reactivity';
 
 export type ComponentRenderFn = (props: any, host: HTMLElement) => TemplateResult;
 
@@ -29,6 +29,7 @@ export function component(
 
     connectedCallback(): void {
       this._controller.isConnectedToDOM = true
+      this._controller.syncAttributesToProps();
       this._controller.performUpdate();
     }
 

@@ -21,6 +21,7 @@ export class ReactivityController {
   public hooksCache: HooksCacheRecord<any>[] = []
   public proxy: any;
   public isConnectedToDOM: boolean = false;
+  private _hasSyncedAttributes = false;
 
   constructor(public host: HTMLElement, private renderFn: ComponentRenderFn) {
     // 1. Initialize proxy to watch property reads during rendering
@@ -34,10 +35,7 @@ export class ReactivityController {
       }
     });
 
-    // 2. Synchronize any attributes already in HTML at boot time
-    this.syncAttributesToProps();
-
-    // 3. Intercept native attribute modifications
+    // 2. Intercept native attribute modifications
     const originalSetAttr = host.setAttribute.bind(host);
     host.setAttribute = (name: string, value: string) => {
       originalSetAttr(name, value);
@@ -68,11 +66,11 @@ export class ReactivityController {
     }  
   }
 
-  private syncAttributesToProps(): void {
+  public syncAttributesToProps(): void {
+    if (this._hasSyncedAttributes) return;
+    this._hasSyncedAttributes = true;
     for (const attr of this.host.attributes) {
-      const camelName = toCamelCase(attr.name);
-      console.log(`replaced ${attr.name} with ${camelName}`)
-      this._props[camelName] = coerceValue(attr.value);
+      this._props[toCamelCase(attr.name)] = coerceValue(attr.value);
     }
   }
 

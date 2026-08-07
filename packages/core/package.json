@@ -1,0 +1,26 @@
+{
+  "name": "@matchbox/core",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/matchbox-core.js",
+  "module": "./dist/matchbox-core.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/matchbox-core.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "lit-html": "^3.3.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1",
+    "vite-plugin-dts": "^5.0.3"
+  }
+}

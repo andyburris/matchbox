@@ -1,27 +1,12 @@
 {
-  "name": "matchbox",
-  "version": "1.0.0",
-  "description": "",
-  "main": "./dist/index.cjs.js",
-  "module": "./dist/index.es.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
+  "name": "matchbox-monorepo-root",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
   ],
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -p tsconfig.build.json && vite build"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "devDependencies": {
-    "@types/node": "^26.1.2",
-    "typescript": "^7.0.2",
-    "vite": "^8.2.0"
-  },
-  "dependencies": {
-    "lit-html": "^3.3.3"
+    "typescript": "^5.9.3"
   }
 }

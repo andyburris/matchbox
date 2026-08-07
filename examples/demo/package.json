@@ -1,0 +1,18 @@
+{
+  "name": "example-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --minify false && tsx ../../packages/ssr/src/prerender.ts ./dist/index.html --outDir ./dist"
+  },
+  "dependencies": {
+    "@matchbox/core": "*"
+  },
+  "devDependencies": {
+    "@matchbox/ssr": "*",
+    "tsx": "^4.23.9",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1"
+  }
+}

@@ -1,6 +1,6 @@
+import { component, configureMatchbox, consumeContext, ContextKey, mutableStateOf, remember, rememberContextProvider, type State } from "@matchbox/core";
 import { html } from "lit-html";
-import { component, configureMatchbox, mutableStateOf, remember, State, consumeContext, ContextKey, rememberContextProvider } from "../../src";
-import baseCss from "./index.css?inline"
+import baseCss from "./index.css?inline";
 
 const globalSheet = new CSSStyleSheet();
 globalSheet.replaceSync(baseCss)
@@ -22,6 +22,7 @@ component("outer-counter", ({ initial, label }: { initial: number, label: string
 
 component("inner-counter", ({ labels, outerNum }: { labels: { outer: string, inner: string }, outerNum: number }) => {
   const { outer: outerLabel, inner: innerLabel } = labels
+  // const [innerLabel, outerLabel] = ["Inner hardcoded", "Outer hardcoded"]
   const [innerValue, setInnerValue] = remember(() => mutableStateOf(0), []);
   return html`
     <p>${innerLabel}: ${innerValue}</p>
