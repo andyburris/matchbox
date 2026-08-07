@@ -14,15 +14,15 @@ export const runtime = {
 export type HooksCacheRecord<T> = {
   keys: any[],
   value: T,
-  onDispose?: (cachedValue: T) => void;
 }
 export class ReactivityController {
   private _props: Record<string, any> = {};
   private _definedProps = new Set<string>();
   public hooksCache: HooksCacheRecord<any>[] = []
   public proxy: any;
+  public isConnectedToDOM: boolean = false;
 
-  constructor(private host: HTMLElement, private renderFn: ComponentRenderFn) {
+  constructor(public host: HTMLElement, private renderFn: ComponentRenderFn) {
     // 1. Initialize proxy to watch property reads during rendering
     this.proxy = new Proxy(this._props, {
       get: (target, key) => {
@@ -52,7 +52,7 @@ export class ReactivityController {
   }
 
   public performUpdate(): void {
-    if (!this.host.shadowRoot) return;
+    if (!this.isConnectedToDOM || !this.host.shadowRoot) return;
 
     // Lock the runtime focus onto this specific element instance
     runtime.currentController = this;

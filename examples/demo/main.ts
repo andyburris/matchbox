@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import { component, configureMatchbox, mutableStateOf, remember } from "../../src";
+import { component, configureMatchbox, mutableStateOf, remember, State, consumeContext, ContextKey, rememberContextProvider } from "../../src";
 import baseCss from "./index.css?inline"
 
 const globalSheet = new CSSStyleSheet();
@@ -27,5 +27,38 @@ component("inner-counter", ({ labels, outerNum }: { labels: { outer: string, inn
     <p>${innerLabel}: ${innerValue}</p>
     <p>${outerLabel} + ${innerLabel}: ${outerNum + innerValue}</p>
     <button @click=${() => setInnerValue(innerValue + 1)}>Increment inner</button>
+  `
+})
+
+const FRUITS = ["Apple", "Banana", "Cherry", "Durian", "Elderberry", "Fig", "Grape", "Honeydew", "Jackfruit", "Kiwi"]
+const SelectedFruitContext = new ContextKey<State<string | null>>(Symbol("selected-fruit"))
+
+component("fruit-list", () => {
+  const [values, setValues] = remember(() => mutableStateOf(FRUITS.slice(0, 3)))
+  const selectedValueState = remember(() => mutableStateOf<string | null>(null))
+
+
+  const provideSelectedFruit = rememberContextProvider(SelectedFruitContext, () => selectedValueState, [selectedValueState.value])
+
+  return html`
+    <li @context-request=${provideSelectedFruit}>
+      ${values.map((v) => html`<fruit-list-item fruit=${v}></fruit-list-item>`)}
+    </li>
+    <button @click=${() => setValues([...values, FRUITS[values.length]])}>Add fruit</button>
+  `
+})
+
+component("fruit-list-item", ({ fruit }: { fruit: string }) => {
+  const selectedFruitState = remember(() => consumeContext(SelectedFruitContext)).value
+  const isSelected = selectedFruitState.value === fruit
+
+  return html`
+    <div 
+      style=${isSelected ? "font-weight: 700;" : ""} 
+      @mouseenter=${() => selectedFruitState.setValue(fruit)} 
+      @mouseleave=${() => selectedFruitState.setValue(null)}
+    >
+      ${fruit}
+    </div>
   `
 })

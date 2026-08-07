@@ -1,5 +1,6 @@
 export { component, type ComponentRenderFn, type ComponentOptions } from "./component"
-export { mutableStateOf, type StateTuple } from "./state"
+export { mutableStateOf, type State } from "./state"
 export { remember, type RememberOptions } from "./remember"
-export { launchedEffect, type EffectCallback } from "./effect"
+export { rememberLaunchedEffect, type EffectCallback } from "./effect"
 export { configureMatchbox, type MatchboxOptions } from "./config"
+export { consumeContext, provideContext, rememberContextProvider, ContextKey } from "./context"

@@ -9,7 +9,7 @@ export interface ComponentOptions {
 }
 
 export function component(
-  tagName: string,
+  tagName: `${string}-${string}`,
   renderFn: ComponentRenderFn,
   options: ComponentOptions = {}
 ): void {
@@ -28,10 +28,12 @@ export function component(
     }
 
     connectedCallback(): void {
+      this._controller.isConnectedToDOM = true
       this._controller.performUpdate();
     }
 
     disconnectedCallback() {
+      this._controller.isConnectedToDOM = false
       const cache = this._controller.hooksCache;
       if (cache) {
         // Run dispose on unmount for any hook that needs it

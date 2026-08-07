@@ -1,14 +1,15 @@
 
 import { runtime } from "./reactivity";
 
-export interface RememberOptions<T> {
-  onDispose?: (cachedValue: T) => void;
-}
+export const Disposable = Symbol('Disposable');
+
+// @ts-ignore unused generic
+export type RememberOptions<T> = {}
 
 export function remember<T>(
   calculation: () => T, 
   keys: any[] = [],
-  options: RememberOptions<T> = {},
+  // _options: RememberOptions<T> = {},
 ): T {
 
   const controller = runtime.currentController;
@@ -22,7 +23,7 @@ export function remember<T>(
   // First mount
   if (index >= cache.length) {
     const value = calculation();
-    cache.push({ value, keys, onDispose: options.onDispose });
+    cache.push({ value, keys });
     return value;
   }
 
@@ -32,10 +33,10 @@ export function remember<T>(
     keys.some((k, i) => k !== record.keys[i]);
 
   if (keysChanged) {
-    if (typeof record.onDispose === 'function') {
-      record.onDispose(record.value);
+    if (record.value && typeof record.value[Disposable] === 'function') {
+      record.value[Disposable]();
     }
-
+    
     record.value = calculation();
     record.keys = keys;
   }
