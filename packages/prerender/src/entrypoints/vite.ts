@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import type { Plugin } from 'vite';
-import { prerenderFile } from './prerender.js';
+import { prerenderFile } from '../prerender.js';
 
 export function matchboxPrerenderPlugin(): Plugin {
   return {

@@ -1,5 +1,6 @@
-import { render } from "lit-html";
+import { render, type TemplateResult } from "lit-html";
 import { ComponentRenderFn } from "./component";
+import { activeMatchboxOptions } from "./config";
 
 export interface HookState {
   value: any;
@@ -50,21 +51,47 @@ export class ReactivityController {
   }
 
   public performUpdate(): void {
-    if (!this.isConnectedToDOM || !this.host.shadowRoot) return;
+    this.withRuntime((template, root) => render(template, root));
+  }
+
+  /** 
+   * Returns whether the hydration succeeded. 
+   * If not, the component needs to clear and render normally. */
+  public performHydrate(): boolean {
+    const hydrate = activeMatchboxOptions.hydrate;
+    if (hydrate === null) return false;
+
+    return this.withRuntime((template, root) => {
+      try {
+        const hydrated = hydrate(template, root);
+        // console.log("[matchbox] hydration succeeded");
+        return hydrated;
+      } catch (error) {
+        // Every private lit name hydration touches is renamed in production builds, so a
+        // version whose shape we don't recognise must degrade to a render, not a blank page.
+        console.error(`[matchbox] <${this.host.localName}> threw while hydrating, rendering instead`, this.host, error);
+        return false;
+      }
+    }) ?? false;
+  }
+
+  private withRuntime<T>(commit: (template: TemplateResult, root: ShadowRoot) => T): T | undefined {
+    const root = this.host.shadowRoot;
+    if (!this.isConnectedToDOM || !root) return;
 
     // Lock the runtime focus onto this specific element instance
     runtime.currentController = this;
     runtime.currentHookIndex = 0;
 
     try {
-      const template = this.renderFn(this.proxy, this.host);
-      render(template, this.host.shadowRoot);
+      return commit(this.renderFn(this.proxy, this.host), root);
     } finally {
       // Always clean up runtime focus, even if a rendering error throws
       runtime.currentController = null;
       runtime.currentHookIndex = 0;
-    }  
+    }
   }
+
 
   public syncAttributesToProps(): void {
     if (this._hasSyncedAttributes) return;

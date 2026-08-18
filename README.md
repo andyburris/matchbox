@@ -1,6 +1,6 @@
 # Matchbox
 
-A tiny library for writing [web components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components) declaratively.
+A tiny library for writing [web components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components) declaratively. Solves most of the ergonomic issues with web components.
 
 ## Quick start
 `index.ts`
@@ -37,7 +37,7 @@ This should be very familiar if you're coming from React or Jetpack Compose, but
 
 <details>
   <summary>A brief introduction to declarative UI</summary>
-  Conceptually, you can think of a Matchbox component as a pure function where the inputs are the component's state, and the output is a new DOM tree. Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is conceptual—in practice, `lit-html` makes it so the DOM gets surgically updated.)
+  Conceptually, you can think of a Matchbox component as a pure function where the inputs are the component's state, and the output is a new DOM tree. Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is only conceptual—in practice, `lit-html` makes it so the DOM gets surgically updated.)
 
   ```ts
   component("my-component", ({ label, num }: { label: string, num: number }) => {
@@ -98,7 +98,9 @@ For React users, many hooks you're used to can be re-implemented this way. For e
 Matchbox includes a selevtive handful of niceties to solve some of the main ergonomic issues with web components.
 
 ### Prerendering
-By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (such as `localStorage`), won't be prerendered. 
+By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (e.g. `localStorage`), or randomness (e.g. `crypto.randomUUID()`, `Date.now()`) won't be prerendered. 
+
+<!-- (Unless you override it by adding `prerender: "force"` to your component options. No promises after that.)-->
 
 It can be used on the command line with:
 ```bash
@@ -140,6 +142,14 @@ component(
 Per-component `adoptedStyleSheets` are quite useful. You can split your CSS into smaller sections and only import the relevant ones for each component, use Lit's ```css` ` ```  tagged template, or anything else.
 
 ### Context
+Compare the following UI structures:
+```ts
+component("list-parent", ({ items }: { items: string }) => html`
+  <ul>
+    ${items.map((item, i) => html`<li>${i}. ${item}</li>`)}
+  <ul>
+`)
+```
 For many (arguably most) UI components, it's better to assemble composable parent and child pieces rather than having each parent component dictate exactly what it's child components are. For instance:
 ```ts
 component("list-parent", ({ items }: { items: string }) => html`

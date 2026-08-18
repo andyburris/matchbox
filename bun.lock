@@ -12,6 +12,7 @@
       "name": "example-demo",
       "dependencies": {
         "@matchbox/core": "*",
+        "lit-html": "3.3.3",
       },
       "devDependencies": {
         "@matchbox/prerender": "*",
@@ -22,18 +23,22 @@
     "packages/core": {
       "name": "@matchbox/core",
       "version": "1.0.0",
-      "dependencies": {
-        "lit-html": "^3.3.3",
-      },
       "devDependencies": {
+        "lit-html": "3.3.3",
         "typescript": "^5.9.3",
         "vite": "^8.2.1",
         "vite-plugin-dts": "^5.0.3",
+      },
+      "peerDependencies": {
+        "lit-html": "~3.3.3",
       },
     },
     "packages/prerender": {
       "name": "@matchbox/prerender",
       "version": "1.0.0",
+      "bin": {
+        "matchbox-prerender": "./dist/entrypoints/cli.js",
+      },
       "dependencies": {
         "happy-dom": "^20.11.1",
         "js-beautify": "^2.0.3",

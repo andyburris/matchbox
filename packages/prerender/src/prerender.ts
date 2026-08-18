@@ -2,8 +2,10 @@ import { HTMLSerializer, Window } from 'happy-dom';
 import jsBeautify from "js-beautify";
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { captureStyleSheetSources, patchCustomElementUpgrade } from "./fix-happy-dom.js";
 import { inlineAdoptedStyleSheets } from "./css.js";
+import { collectHydratableRoots, markPartExtents } from "./dom.js";
+import { captureStyleSheetSources, patchCustomElementUpgrade } from "./fix-happy-dom.js";
+import { gateBrowserOnlyAPIs } from "./browseronly.js";
 
 /** Prerenders an HTML file on disk. Assets resolve relative to the file's own directory. */
 export async function prerenderFile(inputPath: string, outputPath = inputPath): Promise<void> {
@@ -34,12 +36,16 @@ export async function prerender(rawHTML: string, baseDir: string): Promise<strin
     },
   });
 
-  patchCustomElementUpgrade(window)
-  captureStyleSheetSources(window)
-  gateBrowserOnlyAPIs(window)
+  patchCustomElementUpgrade(window);
+  captureStyleSheetSources(window);
+  gateBrowserOnlyAPIs(window);
 
   window.document.write(rawHTML);
 
+  // await window.happyDOM.waitUntilComplete();
+  // // @ts-expect-error
+  // window.matchboxinit();
+  
   await window.happyDOM.waitUntilComplete();
 
   // Dump Happy DOM's private error & log history
@@ -49,6 +55,16 @@ export async function prerender(rawHTML: string, baseDir: string): Promise<strin
   //   console.log(happyConsoleOutput);
   //   console.log("----------------------------------------\n");
   // }
+
+  const hydratable = collectHydratableRoots(window.document as any);
+  const hydrationConfigured = (window as unknown as { __matchboxHydration?: boolean }).__matchboxHydration;
+  if (hydratable.length > 0 && !hydrationConfigured) {
+    throw new Error(
+      `[matchbox] ${hydratable.length} prerendered component${hydratable.length === 1 ? "" : "s"} need${hydratable.length === 1 ? "s" : ""} hydration. ` +
+      `Pass \`hydrate\` to configureMatchbox().`
+    );
+  }
+  markPartExtents(hydratable);
 
   await inlineAdoptedStyleSheets(window.document as any, baseDir);
   const serializer = new HTMLSerializer({ allShadowRoots: true });
@@ -61,23 +77,4 @@ export async function prerender(rawHTML: string, baseDir: string): Promise<strin
 
   await window.happyDOM.close();
   return beautifiedHTML;
-}
-
-const BROWSER_ONLY_APIS = ['localStorage', 'sessionStorage', 'indexedDB'] as const;
-
-/** Touching one of these throws, which marks that component as un-prerenderable. */
-function gateBrowserOnlyAPIs(window: Window): void {
-  for (const name of BROWSER_ONLY_APIS) {
-    const unavailable = new Proxy({}, {
-      get(_, property) {
-        throw new Error(`${name}.${String(property)} is not available during prerendering`);
-      }
-    });
-    Object.defineProperty(window, name, { configurable: true, writable: true, value: unavailable });
-  }
-
-  Object.defineProperty(window, 'matchMedia', {
-    configurable: true, writable: true,
-    value: () => { throw new Error('matchMedia is not available during prerendering'); }
-  });
 }

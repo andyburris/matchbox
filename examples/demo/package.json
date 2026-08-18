@@ -4,10 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --minify false"
+    "build": "vite build --minify false",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@matchbox/core": "*"
+    "@matchbox/core": "*",
+    "lit-html": "3.3.3"
   },
   "devDependencies": {
     "@matchbox/prerender": "*",

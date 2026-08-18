@@ -1,11 +1,12 @@
-import { component, configureMatchbox, consumeContext, ContextKey, mutableStateOf, remember, rememberContextProvider, type State } from "@matchbox/core";
+import { component, configureMatchbox, consumeContext, ContextKey, hydrate, mutableStateOf, remember, rememberContextProvider, type State } from "@matchbox/core";
 import { html } from "lit-html";
 import baseCss from "./index.css?inline";
 
 const globalSheet = new CSSStyleSheet();
 globalSheet.replaceSync(baseCss)
 configureMatchbox({
-  defaultAdoptedStylesheets: [globalSheet]
+  defaultAdoptedStylesheets: [globalSheet],
+  hydrate: hydrate,
 })
 
 component("outer-counter", ({ initial, label }: { initial: number, label: string }) => {
@@ -13,7 +14,6 @@ component("outer-counter", ({ initial, label }: { initial: number, label: string
   
   return html`
     <div>
-      <input type="text"/>
       <p>${label}: ${value}</p>
       <inner-counter .labels=${{ outer: label, inner: "Inner" }} outer-num=${value}></inner-counter>
       <button @click=${() => setValue(value + 1)}>Increment outer</button>
@@ -47,6 +47,7 @@ component("fruit-list", () => {
       ${values.map((v) => html`<fruit-list-item fruit=${v}></fruit-list-item>`)}
     </li>
     <button @click=${() => setValues([...values, FRUITS[values.length]])}>Add fruit</button>
+    <button @click=${() => setValues(values.slice(0, -1))}>Remove fruit</button>
   `
 })
 
@@ -62,5 +63,22 @@ component("fruit-list-item", ({ fruit }: { fruit: string }) => {
     >
       ${fruit}
     </div>
+  `
+})
+
+component("hydration-probe", () => {
+  const [open, setOpen] = remember(() => mutableStateOf(false))
+  const [text, setText] = remember(() => mutableStateOf(""))
+
+  return html`
+    <details ?open=${open} @toggle=${(e: Event) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary>Dropdown</summary>
+      ${open ? html`<p>open branch</p>` : html`<em>closed branch</em>`}
+    </details>
+    <label>
+      Text
+      <input .value=${text} @input=${(e: Event) => setText((e.target as HTMLInputElement).value)}>
+    </label>
+    <p .title="${text.length} characters long">state: "${text}"</p>
   `
 })

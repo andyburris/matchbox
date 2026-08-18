@@ -15,7 +15,8 @@ export default defineConfig({
     },
     rollupOptions: {
       // Don't bundle lit-html into the library file; let the user's project provide it
-      external: ['lit-html']
+      // Use regex to match subpaths from other libraries (e.g. ssr)
+      external: [/^lit-html(\/.*)?$/]
     },
     sourcemap: true,
     minify: false // Useful to keep unminified for debugger readability in monorepos

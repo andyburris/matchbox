@@ -1,6 +1,8 @@
-export { component, type ComponentRenderFn, type ComponentOptions } from "./component"
-export { mutableStateOf, type State } from "./state"
-export { remember, type RememberOptions } from "./remember"
-export { rememberLaunchedEffect, type EffectCallback } from "./effect"
+export { component, type ComponentOptions, type ComponentRenderFn } from "./component"
 export { configureMatchbox, type MatchboxOptions } from "./config"
-export { consumeContext, provideContext, rememberContextProvider, ContextKey } from "./context"
+export { consumeContext, ContextKey, provideContext, rememberContextProvider } from "./context"
+export { rememberLaunchedEffect, type EffectCallback } from "./effect"
+export { hydrate, type HydrateDOM } from "./hydrate"
+export { remember, type RememberOptions } from "./remember"
+export { mutableStateOf, type State } from "./state"
+

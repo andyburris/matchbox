@@ -6,9 +6,9 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./vite": { "types": "./dist/vite.d.ts", "import": "./dist/vite.js" }
+    "./vite": { "types": "./dist/entrypoints/vite.d.ts", "import": "./dist/entrypoints/vite.js" }
   },
-  "bin": { "matchbox-prerender": "./dist/cli.js" },
+  "bin": { "matchbox-prerender": "./dist/entrypoints/cli.js" },
   "files": ["dist", "src"],
   "scripts": { "build": "tsc -p tsconfig.json" },
   "dependencies": {

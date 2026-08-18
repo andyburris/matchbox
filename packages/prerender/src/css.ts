@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { RAW_CSS } from './fix-happy-dom.js';
+import { collectShadowRoots } from "./dom.js";
 
 /** Adopted stylesheets are a JS construct, so they don't survive serialization. Reference
  *  them by <link> where the document already ships the same CSS, and inline the rest. */
@@ -51,10 +52,12 @@ export async function inlineAdoptedStyleSheets(
         const link = document.createElement('link');
         link.setAttribute('rel', 'stylesheet');
         link.setAttribute('href', href);
+        link.setAttribute('data-mb-style', '');
         return [link];
       }
 
       const style = document.createElement('style');
+      style.setAttribute('data-mb-style', '');
       style.textContent = css;
       return [style];
     });
@@ -83,13 +86,4 @@ async function collectLinkedStyleSheets(document: Document, baseDir: string): Pr
   }
 
   return hrefByContent;
-}
-
-function collectShadowRoots(root: ParentNode, found: ShadowRoot[] = []): ShadowRoot[] {
-  for (const element of root.querySelectorAll('*')) {
-    if (!element.shadowRoot) continue;
-    found.push(element.shadowRoot);
-    collectShadowRoots(element.shadowRoot, found);   // nested components
-  }
-  return found;
 }

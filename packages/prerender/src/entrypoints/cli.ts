@@ -2,7 +2,7 @@
 
 import * as path from 'node:path';
 import { parseArgs } from 'node:util';
-import { prerenderFile } from './prerender.js';
+import { prerenderFile } from '../prerender.js';
 
 runCLI().catch((error) => {
   console.error(error);
