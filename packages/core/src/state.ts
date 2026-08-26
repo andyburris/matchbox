@@ -14,13 +14,16 @@ export type State<T> = [T, (newValue: T) => void] & {
 export function mutableStateOf<T>(initialValue: T): State<T> {
   let stateValue = initialValue;
   const boundController = runtime.currentController;
+  if (!boundController) {
+    throw new Error(
+      "mutableStateOf() must be called during a component's render."
+    );
+  }
 
   const setter = (newValue: T) => {
     if (stateValue !== newValue) {
       stateValue = newValue;
-      if (boundController) {
-        boundController.performUpdate();
-      }
+      boundController.performUpdate();
     }
   };
 

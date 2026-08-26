@@ -8,11 +8,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@matchbox/core": "*",
+    "matchbox-wc": "*",
     "lit-html": "3.3.3"
   },
   "devDependencies": {
-    "@matchbox/prerender": "*",
+    "@matchbox-wc/prerender": "*",
     "typescript": "^5.9.3",
     "vite": "^8.2.1"
   }

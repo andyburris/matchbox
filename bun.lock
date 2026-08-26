@@ -11,17 +11,17 @@
     "examples/demo": {
       "name": "example-demo",
       "dependencies": {
-        "@matchbox/core": "*",
         "lit-html": "3.3.3",
+        "matchbox-wc": "*",
       },
       "devDependencies": {
-        "@matchbox/prerender": "*",
+        "@matchbox-wc/prerender": "*",
         "typescript": "^5.9.3",
         "vite": "^8.2.1",
       },
     },
     "packages/core": {
-      "name": "@matchbox/core",
+      "name": "matchbox-wc",
       "version": "1.0.0",
       "devDependencies": {
         "lit-html": "3.3.3",
@@ -34,7 +34,7 @@
       },
     },
     "packages/prerender": {
-      "name": "@matchbox/prerender",
+      "name": "@matchbox-wc/prerender",
       "version": "1.0.0",
       "bin": {
         "matchbox-prerender": "./dist/entrypoints/cli.js",
@@ -120,9 +120,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@matchbox/core": ["@matchbox/core@workspace:packages/core"],
-
-    "@matchbox/prerender": ["@matchbox/prerender@workspace:packages/prerender"],
+    "@matchbox-wc/prerender": ["@matchbox-wc/prerender@workspace:packages/prerender"],
 
     "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
 
@@ -311,6 +309,8 @@
     "lru-cache": ["lru-cache@11.5.2", "", {}, "sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g=="],
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
+
+    "matchbox-wc": ["matchbox-wc@workspace:packages/core"],
 
     "minimatch": ["minimatch@10.2.6", "", { "dependencies": { "brace-expansion": "^5.0.8" } }, "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A=="],
 

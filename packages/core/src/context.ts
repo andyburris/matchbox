@@ -3,7 +3,10 @@ import { Disposable, remember } from "./remember";
 
 // @ts-ignore unused generic
 export class ContextKey<T> {
-  constructor(public symbol: symbol) {}
+  symbol: symbol;
+  constructor(key?: string | symbol) {
+    this.symbol = typeof key ==="symbol" ? key : Symbol(key);
+  }
 }
 
 export function rememberContextProvider<T>(
@@ -53,6 +56,10 @@ export function provideContext<T>(key: ContextKey<T>, currentValue: T, onSubscri
 export type ContextValue<T> = {
   readonly value: T;
   [Disposable]: () => void;
+}
+
+export function rememberContextConsumer<T>(key: ContextKey<T>): T {
+  return remember(() => consumeContext(key)).value
 }
 
 export function consumeContext<T>(key: ContextKey<T>): ContextValue<T> {

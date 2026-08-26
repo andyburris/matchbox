@@ -48,6 +48,14 @@ export class ReactivityController {
       originalRemoveAttr(name);
       this.handleAttributeChange(name, null);
     };
+
+    const originalToggleAttr = host.toggleAttribute.bind(host);
+    host.toggleAttribute = (name: string, force?: boolean) => {
+      const present = originalToggleAttr(name, force);
+      this.handleAttributeChange(name, present ? '' : null);
+      return present;
+    };
+
   }
 
   public performUpdate(): void {
@@ -79,6 +87,9 @@ export class ReactivityController {
     const root = this.host.shadowRoot;
     if (!this.isConnectedToDOM || !root) return;
 
+    const previousController = runtime.currentController;
+    const previousHookIndex = runtime.currentHookIndex;
+
     // Lock the runtime focus onto this specific element instance
     runtime.currentController = this;
     runtime.currentHookIndex = 0;
@@ -86,9 +97,9 @@ export class ReactivityController {
     try {
       return commit(this.renderFn(this.proxy, this.host), root);
     } finally {
-      // Always clean up runtime focus, even if a rendering error throws
-      runtime.currentController = null;
-      runtime.currentHookIndex = 0;
+      // Always restore runtime focus, even if a rendering error throws
+      runtime.currentHookIndex = previousHookIndex;
+      runtime.currentController = previousController;
     }
   }
 
@@ -97,13 +108,13 @@ export class ReactivityController {
     if (this._hasSyncedAttributes) return;
     this._hasSyncedAttributes = true;
     for (const attr of this.host.attributes) {
-      this._props[toCamelCase(attr.name)] = coerceValue(attr.value);
+      this._props[toCamelCase(attr.name)] = attr.value;
     }
   }
 
   private handleAttributeChange(name: string, value: string | null): void {
     const camelName = toCamelCase(name);
-    const coerced = coerceValue(value);
+    const coerced = value ?? undefined;
     if (this._props[camelName] !== coerced) {
       this._props[camelName] = coerced;
       this.performUpdate();
@@ -137,12 +148,4 @@ export class ReactivityController {
 
 function toCamelCase(kebabCaseName: string): string {
   return kebabCaseName.replace(/-([a-z])/g, (g) => g.slice(1).toUpperCase());
-}
-
-function coerceValue(val: string | null): any {
-  if (val === null) return undefined;
-  if (val === 'true') return true;
-  if (val === 'false') return false;
-  if (!isNaN(Number(val)) && val.toString().trim() !== '') return Number(val);
-  return val.toString();
 }

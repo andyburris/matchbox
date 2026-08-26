@@ -9,8 +9,8 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(import.meta.dirname, 'src/index.ts'),
-      name: 'MatchboxCore',
-      fileName: 'matchbox-core',
+      name: 'Matchbox',
+      fileName: 'matchbox-wc',
       formats: ['es'] // Output standard modern EcmaScript Modules
     },
     rollupOptions: {

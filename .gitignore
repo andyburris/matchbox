@@ -38,3 +38,7 @@ Thumbs.db
 # Vite / TypeScript cache
 .vite/
 .tsbuildinfo
+
+# repo .mds copied into packages
+packages/core/README.md
+packages/core/LICENSE.md

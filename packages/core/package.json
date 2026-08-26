@@ -1,19 +1,27 @@
 {
-  "name": "@matchbox/core",
-  "version": "1.0.0",
+  "name": "matchbox-wc",
+  "description": "A small library for writing web components declaratively",
+  "version": "0.1.0",
+  "license": "MIT",
+  "author": "Andy Burris",
+  "repository": { "type": "git", "url": "git+https://github.com/andyburris/matchbox.git", "directory": "packages/core" },
+  "homepage": "https://github.com/andyburris/matchbox",
+  "keywords": ["web-components", "custom-elements", "lit-html", "shadow-dom", "prerender", "hydration", "react", "reactive"],
+  "publishConfig": { "access": "public" },
   "type": "module",
-  "main": "./dist/matchbox-core.js",
-  "module": "./dist/matchbox-core.js",
+  "main": "./dist/matchbox-wc.js",
+  "module": "./dist/matchbox-wc.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/matchbox-core.js"
+      "import": "./dist/matchbox-wc.js"
     }
   },
   "files": ["dist", "src"],
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "prepack": "cp ../../README.md ../../LICENSE.md . && vite build"
   },
   "peerDependencies": {
     "lit-html": "~3.3.3"

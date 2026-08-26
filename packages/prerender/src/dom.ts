@@ -1,5 +1,5 @@
 
-/** Members lit marks @internal. Mirrors the declarations in @matchbox/core's hydrate.ts. */
+/** Members lit marks @internal. Mirrors the declarations in matchbox-wc's hydrate.ts. */
 type LitPart = { readonly type: number };
 
 type LitChildPart = LitPart & {

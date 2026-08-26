@@ -1,7 +1,7 @@
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 // Import the prerenderer plugin from your local sibling workspace
-import { matchboxPrerenderPlugin } from '@matchbox/prerender/vite';
+import { matchboxPrerenderPlugin } from '@matchbox-wc/prerender/vite';
 import type { Plugin } from 'vite';
 
 function delayAssets(ms: number): Plugin {

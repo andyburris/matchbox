@@ -1,15 +1,19 @@
 # Matchbox
 
-A small library for writing [web components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components) declaratively. Plus a handful of other features ([prerendering](#prerendering), [default stylesheets](#default-stylesheets), [context](#context)) that add up to a much simpler development experience.
+A small library for writing [web components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components) declaratively. Plus a handful of other features ([default stylesheets](#default-stylesheets), [context](#context), [prerendering](#prerendering)) that add up to a much simpler development experience.
 
 ## Quick start
-`index.ts`
+Add Matchbox to your project:
+```bash
+npm i matchbox-wc lit-html
+```
+define a component in `index.ts`:
 ```ts
 import { html } from "lit-html";
-import { component, mutableStateOf, remember } from "../../src";
+import { component, mutableStateOf, remember } from "matchbox-wc";
 
-component("my-counter", ({ initial, label }: { initial: number, label: string }) => {
-  const [value, setValue] = remember(() => mutableStateOf(initial), [initial]);
+component("my-counter", ({ initial, label }: { initial: string, label: string }) => {
+  const [value, setValue] = remember(() => mutableStateOf(Number(initial)));
   
   return html`
     <div>
@@ -20,7 +24,7 @@ component("my-counter", ({ initial, label }: { initial: number, label: string })
 })
 ```
 
-and use in `index.html` with:
+and use in `index.html`:
 ```html
 <!DOCTYPE html>
 <html>
@@ -32,13 +36,14 @@ and use in `index.html` with:
 ```
 
 ## Architecture
-Matchbox uses a top-down, functional architecture for creating components.
-This should be very familiar if you're coming from React or Jetpack Compose, but maybe less so if you're coming from Vanilla JS, or class-based components like Lit or old React.
+Matchbox lets you write components as functions rather than classes. 
+This should be very familiar if you're coming from React or Jetpack Compose, but may be less so if you're coming from Vanilla JS, or class-based components like Lit or old React.
 
 <details>
   <summary><i>A brief introduction to declarative UI</i></summary>
-  Conceptually, you can think of a Matchbox component as a pure function where the inputs are the component's state, and the output is a new DOM tree. Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is only conceptual—in practice, <code>lit-html</code> surgically updates only the parts of the DOM that have changed.)
-  
+  Conceptually, you can think of a Matchbox component as a pure function where the inputs are the component's state, and the output is a new DOM tree. 
+  Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is only conceptual—in practice, <code>lit-html</code> surgically updates only the parts of the DOM that have changed.)
+
   Take this component as an example:
   ```ts
   component("my-component", ({ label, num }: { label: string, num: number }) => {
@@ -46,21 +51,56 @@ This should be very familiar if you're coming from React or Jetpack Compose, but
     return html`<p>${label}: ${num}</p>`
   })
   ```
-  For each instance of this component, any time that the `label` or `num` attributes get changed (whether that's manually in the DOM, or by a parent web component), it will run the function, print `"rerendered!"` to the console, and update the internal DOM of the instance to reflect the new state.
+  For each instance of this component, any time that the `label` attribute or `num` property gets changed (whether that's manually in the DOM or JS, or by a parent web component), it will run the function, print `"rerendered!"` to the console, and update the internal DOM of the instance to reflect the new state.
+
+  If all that was possible was stateless functions, you could only change the state of the component tree by changing attributes on the top-level components. So to allow for component-scoped state, Matchbox lets you memoize state across renders using the `remember()` and `State` primitives.
 
   > *For further reading, Jetpack Compose's ["Thinking in Compose"](https://developer.android.com/develop/ui/compose/mental-model) guide is a little Android-specific in places but overall quite helpful for understanding declarative UI.*
-
-  Of course, if all that was possible was stateless functions, you could only change the state of the component tree by changing attributes on the top-level components. So to allow for component-scoped state, Matchbox lets you memoize state across renders.
-  
 </details>
 
-Matchbox provides two core primitives to maintain state between renders, namely, `remember()` and `State`.
+### `component()` 
+To define a new web component, run the `component` function with the tag you want to use for it, and a render function that takes in any parameters and produces a `lit-html` tagged template.
+
+```ts
+component("my-component", ({ label, num }: { label: string, num: string }) => {
+  return html`
+    <p>${label} + 10: ${Number(num) + 10}</p>
+  `
+})
+```
+
+You can read more about `lit-html` tagged templates in [Lit's documentation](https://lit.dev/docs/templates/overview/), but some useful shorthand to know about:
+- pass in **attributes** as HTML (in kebab-case):
+  - `<button aria-label="${label}">Click Me</button>`
+- pass in **properties** with a `.` in front of them (in camelCase):
+  - `<<input type="date" .valueAsDate=${new Date()}>`
+- pass in **event listeners** with an `@` in front of them (usually kebab-case):
+  - `<button @click=${(e) => console.log("clicked", e)}></button>`
+
+Once you've defined the component, you can use it in HTML or JS like any regular HTML tag, and all the usual features of web components (like [slots](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_templates_and_slots#adding_flexibility_with_slots)) apply:
+```html
+<body>
+  <my-component label="Initial" num="3"></my-component>
+</body>
+```
+
+> *Matchbox automatically determines if each parameter is an attribute or a property, and converts `kebab-case` attribute names into `camelCase` to use as the render function's parameters. Attributes are **always strings**. (Including `<demo-cmpt number-ish="3" booleanish></demo-cmpt>`, which resolve to `"3"` and `""`, respectively. You can convert these using `Number(numberIsh)` and `booleanish !== undefined` inside the render function if necessary.)*
+
+
+<!-- The `component` function requires two arguments, with an optional third configuration object:
+1. The name of the custom element tag. Must conform to the [`kebab-case` standard](https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/define#valid_custom_element_names).
+2. A function that   -->
+
+A component re-renders any time one of its parameters changes.
+
+In addition to the state passed in via parameters, components can have their own state. (Anytime that internal state changes, the component also re-renders.)
+Matchbox provides two core primitives to maintain state between renders: `remember()` and `State`. 
 
 ### `remember()`
 
 You can `remember` any value, and it will be calculated the first time an instance of a component renders, then reused on subsequent renders. Optionally, you can add an array of dependencies, where the value will be recalculated any time one of them changes. 
 ```ts
-component(({ num }: { num: number }) => {
+component("my-component", ({ num }: { num: number }) => {
   const initial = remember(() => num)
   const tensDigit = Math.floor((num - initial) / 10)
   const everyTenth = remember(() => num, [tensDigit])
@@ -75,16 +115,16 @@ component(({ num }: { num: number }) => {
 > *For React users, `remember` is almost identical conceptually to `useMemo`.*
 
 ### `State`
-`State<T>` holds a value of type `T`. You can access it with `.value`, and set it with `.setValue()`.  Setting the value rerenders any components that rely on it. `.value` returns a plain `T`—you can use it like any other plain value, and Matchbox will keep track of which components rely on it.
+`State<T>` holds a value of type `T`. You can access it with `.value`, and set it with `.setValue()`.  `.value` returns a plain `T`—you can use it like any other plain value. Setting the value rerenders the component that owns it (and any children that get passed its `.value` as a parameter).
 ```ts
-component(({ initial }: { initial: number }) => {
+component("my-component", ({ initial }: { initial: number }) => {
   const [num, setNum] = remember(() => mutableStateOf(initial))
   return html`
     <button @click=${() => setNum(num + 1)}>${num}</button>
   `
 })
 ```
-> *You almost always want to create a `State` inside of a `remember()` block. It's possible to create it outside of one, but it will get recalculated and reset on every render in that case, making it mostly useless.*
+> *You almost always want to create a `State` inside of a `remember()` block. It's possible to create it outside of one, but it will get recalculated and reset on every render in that case, making it mostly useless. You can only create a `State` inside a render function.*
 
 ### Composing primitives
 You can compose the `remember()` and `State<T>` primitives, into much more complex functionality. 
@@ -105,7 +145,7 @@ For any functions that wrap `remember`, it's best practice to start their names 
 Matchbox includes a selective handful of niceties to solve some of the main ergonomic issues with web components.
 
 ### Prerendering
-By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (e.g. `localStorage`), or randomness (e.g. `crypto.randomUUID()`, `Date.now()`) won't be prerendered. 
+By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox-wc/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (e.g. `localStorage`), or randomness (e.g. `crypto.randomUUID()`<!--, `Date.now()`-->) won't be prerendered. 
 
 <!-- (Unless you override it by adding `prerender: "force"` to your component options. No promises after that.)-->
 
@@ -117,7 +157,7 @@ matchbox-prerender index1.html index2.html --outDir ./dist
 or as a Vite plugin with
 
 ```ts
-import { matchboxPrerenderPlugin } from '@matchbox/prerender/vite';
+import { matchboxPrerenderPlugin } from '@matchbox-wc/prerender/vite';
 export default defineConfig({
   plugins: [
     matchboxPrerenderPlugin(),
@@ -129,7 +169,7 @@ export default defineConfig({
 
 On the client side, you need to connect the Javascript to the existing components (a process called "hydration"). At the top level of your main script on the client, add hydration to your Matchbox configuration:
 ```ts
-import { hydrate } from "@matchbox/core";
+import { configureMatchbox, hydrate } from "matchbox-wc";
 
 configureMatchbox({ hydrate: hydrate })
 ```
@@ -157,16 +197,16 @@ component(
 Per-component `adoptedStyleSheets` are quite useful. You can split your CSS into smaller sections and only import the relevant ones for each component, use Lit's ```css` ` ```  tagged template, or anything else.
 
 ### Context
-For many (arguably most) UI components, it's better to assemble composable parent and child pieces rather than having each parent component dictate exactly what it's child components are. For instance:
+For many (arguably most) UI components, it's better to assemble composable parent and child pieces rather than having each parent component dictate exactly what its child components are. For instance:
 ```ts
 component("list-parent", ({ items }: { items: string[] }) => html`
   <ul>
     ${items.map((item, i) => html`<li>${i}. ${item}</li>`)}
-  <ul>
+  </ul>
 `)
 ```
-```html
-<list-parent .items={["a", "b", "c"]}></list-parent>
+```ts
+html`<list-parent .items=${["a", "b", "c"]}></list-parent>`
 ```
 is less flexible than
 ```ts
@@ -187,9 +227,9 @@ component("list-parent", () => html`
 
 Web components have great support for this with `<slot>`s, but passing data between unrelated components can be difficult. To help with this, Matchbox provides two helpers: `rememberContextProvider` and `rememberContextConsumer`. These conform to the [Web Component Context Protocol](https://github.com/webcomponents-cg/community-protocols/blob/main/proposals/context.md).
 
-First, somewhere outside of both components (probably at the top level of a file), declare a `ContextValue<T>`. `T` can be any type, including a `State`.
+First, somewhere outside of both components (probably at the top level of a file), declare a `ContextKey<T>`. `T` can be any type, including a `State`.
 ```ts
-const DemoContext = new ContextValue<State<string | null>>("optional description");
+const DemoContext = new ContextKey<State<string | null>>("optional description");
 ```
 
 To provide that context in the parent component, attach the handler returned by `rememberContextProvider` to the `@context-request` event. `rememberContextProvider` takes the same dependencies array as `remember`, and any components subscribed to that context will update whenever the dependencies do.
@@ -197,7 +237,7 @@ To provide that context in the parent component, attach the handler returned by 
 ```ts
 component("demo-listbox", () => {
   const selectedState = remember(() => mutableStateOf<string | null>(null))
-  const contextProvider = rememberContextProvider(DemoContext, selectedState, [selectedState.value]);
+  const contextProvider = rememberContextProvider(DemoContext, () => selectedState, [selectedState.value]);
   return html`
     <ul role="listbox" @context-request=${contextProvider}>
       <slot></slot>
@@ -240,7 +280,7 @@ Currently, web components seem to mostly be viewed as:
 
 Much of the native API surface of web components is aligned with these goals, most notably encapsulation-by-default.
 
-But for any project larger than a handful of components, you want your components to interact with each other, to share styles, to nest and maintain ARIA compatiblity, etc. You want components that are *not* encapsulated.
+But for any project larger than a handful of components, you want your components to interact with each other, to share styles, to nest and maintain ARIA compatibility, etc. You want components that are *not* encapsulated.
 
 So Matchbox's API defaults to that. (Though it's still easy to make components encapsulated if necessary.) Also, in Matchbox, components are a single declarative function, rather than the boilerplate-heavy default of imperative callbacks and state and renders. 
 
