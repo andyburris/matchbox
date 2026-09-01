@@ -4,11 +4,13 @@ import { type HydrateDOM } from "./hydrate";
 export type MatchboxOptions = {
   defaultAdoptedStylesheets: CSSStyleSheet[],
   hydrate: HydrateDOM | null,
+  componentTag: `${string}-${string}`,
 }
 
 export let activeMatchboxOptions: MatchboxOptions = {
   defaultAdoptedStylesheets: [],
   hydrate: null,
+  componentTag: "mb-component",
 }
 
 export function configureMatchbox(options: Partial<MatchboxOptions>) {

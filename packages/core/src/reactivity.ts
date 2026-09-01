@@ -1,11 +1,7 @@
 import { render, type TemplateResult } from "lit-html";
 import { ComponentRenderFn } from "./component";
 import { activeMatchboxOptions } from "./config";
-
-export interface HookState {
-  value: any;
-  keys: any[];
-}
+import { PropDef } from "./props";
 
 export const runtime = {
   currentController: null as (ReactivityController | null),
@@ -17,50 +13,52 @@ export type HooksCacheRecord<T> = {
   value: T,
 }
 export class ReactivityController {
-  private _props: Record<string, any> = {};
-  private _definedProps = new Set<string>();
-  public hooksCache: HooksCacheRecord<any>[] = []
-  public proxy: any;
-  public isConnectedToDOM: boolean = false;
-  private _hasSyncedAttributes = false;
+  private _props: Record<string, unknown> = {};
+  private _propsByAttribute = new Map<string, PropDef>();
+  private renderArgs: () => readonly unknown[];
 
-  constructor(public host: HTMLElement, private renderFn: ComponentRenderFn) {
-    // 1. Initialize proxy to watch property reads during rendering
-    this.proxy = new Proxy(this._props, {
-      get: (target, key) => {
-        if (typeof key === 'string') {
-          this.ensureReactiveProperty(key);
-          return target[key];
-        }
-        return Reflect.get(target, key);
-      }
-    });
+  public hooksCache: HooksCacheRecord<any>[] = [];
+  /* Flag to make sure we only render when the component is hydrated, even when attributes are changed beforehand. */
+  public isMounted = false;
 
-    // 2. Intercept native attribute modifications
-    const originalSetAttr = host.setAttribute.bind(host);
-    host.setAttribute = (name: string, value: string) => {
-      originalSetAttr(name, value);
-      this.handleAttributeChange(name, value);
-    };
+  constructor(host: HTMLElement, root: ShadowRoot, renderFn: ComponentRenderFn, propDefs: PropDef[]);
+  constructor(host: HTMLElement, root: ShadowRoot, renderFn: ComponentRenderFn, renderArgs: () => readonly unknown[]);
+  constructor(
+    public host: HTMLElement,
+    public root: ShadowRoot,
+    private renderFn: ComponentRenderFn,
+    renderArgsSource: PropDef[] | (() => readonly unknown[])
+  ) {
+    // There are no attributes for unregistered components
+    if (!Array.isArray(renderArgsSource)) {
+      this.renderArgs = renderArgsSource;
+      return;
+    }
 
-    const originalRemoveAttr = host.removeAttribute.bind(host);
-    host.removeAttribute = (name: string) => {
-      originalRemoveAttr(name);
-      this.handleAttributeChange(name, null);
-    };
-
-    const originalToggleAttr = host.toggleAttribute.bind(host);
-    host.toggleAttribute = (name: string, force?: boolean) => {
-      const present = originalToggleAttr(name, force);
-      this.handleAttributeChange(name, present ? '' : null);
-      return present;
-    };
-
+    const propDefs = renderArgsSource;
+    this.renderArgs = () => propDefs.map((p) => this._props[p.name]);
+    for (const prop of propDefs) {
+      this._props[prop.name] = prop.value;
+      if (prop.usesAttribute) this._propsByAttribute.set(prop.attributeName, prop);
+      this.defineProp(prop.name);
+    }
   }
 
   public performUpdate(): void {
     this.withRuntime((template, root) => render(template, root));
   }
+
+  public handleAttributeChange(attributeName: string, value: string | null): void {
+    const prop = this._propsByAttribute.get(attributeName);
+    if (!prop) return;
+
+    const coerced = coerceAttribute(value, prop.value);
+    if (this._props[prop.name] === coerced) return;
+
+    this._props[prop.name] = coerced;
+    this.performUpdate();
+  }
+
 
   /** 
    * Returns whether the hydration succeeded. 
@@ -84,8 +82,7 @@ export class ReactivityController {
   }
 
   private withRuntime<T>(commit: (template: TemplateResult, root: ShadowRoot) => T): T | undefined {
-    const root = this.host.shadowRoot;
-    if (!this.isConnectedToDOM || !root) return;
+    if (!this.isMounted || !this.host.isConnected) return;
 
     const previousController = runtime.currentController;
     const previousHookIndex = runtime.currentHookIndex;
@@ -95,7 +92,7 @@ export class ReactivityController {
     runtime.currentHookIndex = 0;
 
     try {
-      return commit(this.renderFn(this.proxy, this.host), root);
+      return commit(this.renderFn(...this.renderArgs()), this.root);
     } finally {
       // Always restore runtime focus, even if a rendering error throws
       runtime.currentHookIndex = previousHookIndex;
@@ -103,49 +100,37 @@ export class ReactivityController {
     }
   }
 
+  /** Routes reads and writes of this prop on the element through _props, re-rendering on write. */
+  private defineProp(name: string): void {
+    const host = this.host as unknown as Record<string, unknown>;
 
-  public syncAttributesToProps(): void {
-    if (this._hasSyncedAttributes) return;
-    this._hasSyncedAttributes = true;
-    for (const attr of this.host.attributes) {
-      this._props[toCamelCase(attr.name)] = attr.value;
-    }
-  }
-
-  private handleAttributeChange(name: string, value: string | null): void {
-    const camelName = toCamelCase(name);
-    const coerced = value ?? undefined;
-    if (this._props[camelName] !== coerced) {
-      this._props[camelName] = coerced;
-      this.performUpdate();
-    }
-  }
-
-  private ensureReactiveProperty(key: string): void {
-    if (this._definedProps.has(key)) return;
-    this._definedProps.add(key);
-
-    // Upgrade pre-existing properties already set on the element instance
-    if (Object.prototype.hasOwnProperty.call(this.host, key)) {
-      const value = (this.host as any)[key];
-      delete (this.host as any)[key];
-      this._props[key] = value;
+    // A parent may have set this before the element upgraded, leaving an own property
+    // that would otherwise shadow the accessor
+    if (Object.prototype.hasOwnProperty.call(host, name)) {
+      this._props[name] = host[name];
+      delete host[name];
     }
 
-    Object.defineProperty(this.host, key, {
-      get: () => this._props[key],
-      set: (val: any) => {
-        if (this._props[key] !== val) {
-          this._props[key] = val;
-          this.performUpdate();
-        }
+    Object.defineProperty(host, name, {
+      get: () => this._props[name],
+      set: (value: unknown) => {
+        if (this._props[name] === value) return;
+        this._props[name] = value;
+        this.performUpdate();
       },
       configurable: true,
       enumerable: true
     });
   }
+
 }
 
-function toCamelCase(kebabCaseName: string): string {
-  return kebabCaseName.replace(/-([a-z])/g, (g) => g.slice(1).toUpperCase());
+/** Attributes are always strings, so the declared default supplies the type to convert to. */
+function coerceAttribute(raw: string | null, fallback: unknown): unknown {
+  if (raw === null) return fallback;
+  switch (typeof fallback) {
+    case "boolean": return raw !== "false"; // True if present and not the string "false"
+    case "number": return Number(raw);
+    default: return raw;
+  }
 }

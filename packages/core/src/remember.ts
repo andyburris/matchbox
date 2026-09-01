@@ -43,3 +43,13 @@ export function remember<T>(
 
   return record.value;
 }
+
+/** Get a handle to the custom element the component is rendering into. */
+export function rememberHost(): HTMLElement {
+  const controller = runtime.currentController;
+  if (!controller) {
+    throw new Error("rememberHost() must be called inside a component execution context.");
+  }
+
+  return remember(() => controller.host);
+}

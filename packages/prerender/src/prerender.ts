@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { inlineAdoptedStyleSheets } from "./css.js";
 import { collectHydratableRoots, markPartExtents } from "./dom.js";
-import { captureStyleSheetSources, patchCustomElementUpgrade } from "./fix-happy-dom.js";
+import { captureStyleSheetSources, patchCustomElementUpgrade, patchDelegatesFocus } from "./fix-happy-dom.js";
 import { gateBrowserOnlyAPIs } from "./browseronly.js";
 
 /** Prerenders an HTML file on disk. Assets resolve relative to the file's own directory. */
@@ -38,6 +38,7 @@ export async function prerender(rawHTML: string, baseDir: string): Promise<strin
 
   patchCustomElementUpgrade(window);
   captureStyleSheetSources(window);
+  patchDelegatesFocus(window);
   gateBrowserOnlyAPIs(window);
 
   window.document.write(rawHTML);

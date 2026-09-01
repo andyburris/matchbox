@@ -1,7 +1,7 @@
 {
   "name": "@matchbox-wc/prerender",
   "description": "Prerenders matchbox components into declarative shadow DOM, with markers for client-side hydration",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "author": "Andy Burris",
   "repository": { "type": "git", "url": "git+https://github.com/andyburris/matchbox.git", "directory": "packages/prerender" },
@@ -19,7 +19,7 @@
   "files": ["dist", "src"],
   "scripts": { 
     "build": "tsc -p tsconfig.json",
-    "prepublishOnly": "tsc -p tsconfig.json"
+    "prepack": "cp ../../README.md ../../LICENSE.md . && tsc -p tsconfig.json"
   },
   "dependencies": {
     "happy-dom": "^20.11.1",

@@ -42,3 +42,5 @@ Thumbs.db
 # repo .mds copied into packages
 packages/core/README.md
 packages/core/LICENSE.md
+packages/prerender/README.md
+packages/prerender/LICENSE.md

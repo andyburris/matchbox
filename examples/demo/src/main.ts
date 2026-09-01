@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import { component, configureMatchbox, ContextKey, hydrate, mutableStateOf, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
+import { component, configureMatchbox, ContextKey, hydrate, mutableStateOf, registerComponent, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
 import baseCss from "./index.css?inline";
 
 const globalSheet = new CSSStyleSheet();
@@ -9,8 +9,9 @@ configureMatchbox({
   hydrate: hydrate,
 })
 
-component("outer-counter", ({ initial, label }: { initial: string, label: string }) => {
-  const [value, setValue] = remember(() => mutableStateOf(Number(initial)));
+
+registerComponent("outer-counter", (initial: number, label: string) => {
+  const [value, setValue] = remember(() => mutableStateOf(initial));
   
   return html`
     <div>
@@ -19,9 +20,9 @@ component("outer-counter", ({ initial, label }: { initial: string, label: string
       <button @click=${() => setValue(value + 1)}>Increment outer</button>
     </div>
   `;
-})
+}, { defaults: [{ initial: 4 }, { label: "" }] })
 
-component("inner-counter", ({ labels, outerNum }: { labels: { outer: string, inner: string }, outerNum: number }) => {
+registerComponent("inner-counter", (labels: { outer: string, inner: string }, outerNum: number) => {
   const { outer: outerLabel, inner: innerLabel } = labels
   // const [innerLabel, outerLabel] = ["Inner hardcoded", "Outer hardcoded"]
   const [innerValue, setInnerValue] = remember(() => mutableStateOf(0), []);
@@ -30,12 +31,13 @@ component("inner-counter", ({ labels, outerNum }: { labels: { outer: string, inn
     <p>${outerLabel} + ${innerLabel}: ${outerNum + innerValue}</p>
     <button @click=${() => setInnerValue(innerValue + 1)}>Increment inner</button>
   `
-})
+}, { defaults: [{ labels: { outer: "Outer", inner: "Inner" } }, { outerNum: 4 }] })
+
 
 const FRUITS = ["Apple", "Banana", "Cherry", "Durian", "Elderberry", "Fig", "Grape", "Honeydew", "Jackfruit", "Kiwi"]
 const SelectedFruitContext = new ContextKey<State<string | null>>()
 
-component("fruit-list", () => {
+registerComponent("fruit-list", () => {
   const [values, setValues] = remember(() => mutableStateOf(FRUITS.slice(0, 3)))
   const selectedValueState = remember(() => mutableStateOf<string | null>(null))
 
@@ -44,14 +46,14 @@ component("fruit-list", () => {
 
   return html`
     <li @context-request=${provideSelectedFruit}>
-      ${values.map((v) => html`<fruit-list-item fruit=${v}></fruit-list-item>`)}
+      ${values.map((v) => html`${FruitListItem(v).with({ class: "f-l-i", children: html`<em>${v}</em>` })}`)}
     </li>
     <button @click=${() => setValues([...values, FRUITS[values.length]])}>Add fruit</button>
     <button @click=${() => setValues(values.slice(0, -1))}>Remove fruit</button>
   `
 })
 
-component("fruit-list-item", ({ fruit }: { fruit: string }) => {
+const FruitListItem = component((fruit: string) => {
   const [selectedFruit, setSelectedFruit] = rememberContextConsumer(SelectedFruitContext)
   const isSelected = selectedFruit === fruit
 
@@ -62,11 +64,12 @@ component("fruit-list-item", ({ fruit }: { fruit: string }) => {
       @mouseleave=${() => setSelectedFruit(null)}
     >
       ${fruit}
+      <slot></slot>
     </div>
   `
-})
+}, { defaults: [{ fruit: "" }] })
 
-component("hydration-probe", () => {
+registerComponent("hydration-probe", () => {
   const [open, setOpen] = remember(() => mutableStateOf(false))
   const [text, setText] = remember(() => mutableStateOf(""))
 

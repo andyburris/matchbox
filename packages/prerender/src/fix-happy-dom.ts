@@ -1,4 +1,4 @@
-import type { Window } from 'happy-dom';
+import { type Window, HTMLSerializer } from 'happy-dom';
 
 const MARKER = 'data-matchbox-upgrade';
 
@@ -35,7 +35,14 @@ export function patchCustomElementUpgrade(window: Window): void {
         pending.delete(id);
         this.removeAttribute(MARKER);
         for (const [key, descriptor] of Object.entries(descriptors ?? {})) {
-          Object.defineProperty(this, key, descriptor);
+          // The new element's constructor has already installed accessors for its props.
+          // defineProperty would shadow them with a plain value the component never reads,
+          // so assign instead and let the setter do its job.
+          if ("value" in descriptor && descriptor.writable !== false) {
+            (this as unknown as Record<string, unknown>)[key] = descriptor.value;
+          } else {
+            Object.defineProperty(this, key, descriptor);
+          }
         }
         replayObservedAttributes(this);
       }
@@ -101,3 +108,38 @@ export function captureStyleSheetSources(window: Window): void {
   };
 }
 
+/**
+ * happy-dom loses delegatesFocus in both directions: attachShadow reads `init.delegateFocus`
+ * where the spec property is `delegatesFocus`, and the serializer never writes the matching
+ * `shadowrootdelegatesfocus` attribute. Without both halves a prerendered component silently
+ * loses focus delegation, while the same component rendered on the client keeps it.
+ */
+let serializerPatched = false;
+
+export function patchDelegatesFocus(window: Window): void {
+  const elementPrototype = window.Element.prototype as unknown as {
+    attachShadow(init: ShadowRootInit): ShadowRoot;
+  };
+  const originalAttachShadow = elementPrototype.attachShadow;
+  elementPrototype.attachShadow = function (init: ShadowRootInit): ShadowRoot {
+    // Hand happy-dom the misspelled key it actually reads, alongside the correct one
+    const fixed = init?.delegatesFocus ? { ...init, delegateFocus: true } : init;
+    return originalAttachShadow.call(this, fixed as ShadowRootInit);
+  };
+
+  // The serializer is a module-level class rather than a per-window one, so patch it once
+  if (serializerPatched) return;
+  serializerPatched = true;
+
+  const serializerPrototype = HTMLSerializer.prototype as unknown as {
+    serializeToString(root: unknown): string;
+  };
+  const originalSerialize = serializerPrototype.serializeToString;
+  serializerPrototype.serializeToString = function (root: unknown): string {
+    const html = originalSerialize.call(this, root);
+    if (!(root as Partial<Element>)?.shadowRoot?.delegatesFocus) return html;
+    // An element's own shadow template is written before any of its children, so the first
+    // match in its own output is always its own root and never a nested component's.
+    return html.replace('<template shadowrootmode=', '<template shadowrootdelegatesfocus="" shadowrootmode=');
+  };
+}

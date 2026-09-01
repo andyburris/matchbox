@@ -1,7 +1,7 @@
 {
   "name": "matchbox-wc",
   "description": "A small library for writing web components declaratively",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "author": "Andy Burris",
   "repository": { "type": "git", "url": "git+https://github.com/andyburris/matchbox.git", "directory": "packages/core" },
