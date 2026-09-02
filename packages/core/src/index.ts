@@ -2,6 +2,7 @@ export { component, registerComponent, type ComponentOptions, type ComponentRend
 export { configureMatchbox, type MatchboxOptions } from "./config"
 export { consumeContext, ContextKey, provideContext, rememberContextConsumer, rememberContextProvider } from "./context"
 export { rememberLaunchedEffect, type EffectCallback } from "./effect"
+export { defineEvent, listenBindings, type Binding, type EventDefinition } from "./events"
 export { hydrate, type HydrateDOM } from "./hydrate"
 export { property, type DefaultsFor, type PropDef, type PropertyOnly } from "./props"
 export { Disposable, remember, rememberHost, type RememberOptions } from "./remember"

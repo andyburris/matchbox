@@ -1,5 +1,4 @@
 import { html, nothing, TemplateResult } from 'lit-html';
-import type { DirectiveResult } from 'lit-html/directive.js';
 import { activeMatchboxOptions } from './config';
 import { DefaultsFor, readDefaults } from './props';
 import { ReactivityController } from './reactivity';
@@ -189,16 +188,9 @@ type MountPayload = {
   readonly args: readonly unknown[];
 };
 
-export type UnregisteredHostProps = {
-  class?: string | DirectiveResult;
-  style?: string | DirectiveResult;
-  id?: string;
-  slot?: string;
-  children?: unknown;
-};
-
+export type UnregisteredHostProps = Record<string, unknown>;
 export type MountedUnregisteredTemplate = TemplateResult & {
-  with(host: UnregisteredHostProps): TemplateResult;
+  with(host: UnregisteredHostProps, children?: unknown): TemplateResult;
 };
 
 
@@ -267,11 +259,10 @@ class UnregisteredMatchboxComponent extends HTMLElement {
 }
 
 
-// The string templates for mb-component Lit will fill
-// One for the simple <mb-component .mb=${}> and one for the full set of attributes
+// The string template for mb-component Lit will fill
 // Start as null and set with ensureMountTemplates() 
 // to give configureMatchbox() time to run and possibly change the name of mb-component
-type MountTemplates = { readonly bare: TemplateStringsArray; readonly withHost: TemplateStringsArray };
+type MountTemplates = { readonly bare: TemplateStringsArray; readonly tag: string };
 let mountTemplates: MountTemplates | null = null;
 function ensureMountTemplates(): MountTemplates {
   if (mountTemplates) return mountTemplates;
@@ -279,12 +270,32 @@ function ensureMountTemplates(): MountTemplates {
   const tag = activeMatchboxOptions.componentTag;
   if (!customElements.get(tag)) customElements.define(tag, UnregisteredMatchboxComponent);
 
-  mountTemplates = {
-    bare: makeStrings([`<${tag} .mb=`, `></${tag}>`]),
-    withHost: makeStrings([`<${tag} class=`, ` id=`, ` style=`, ` slot=`, ` .mb=`, `>`, `</${tag}>`]),
-  };
+  mountTemplates = { tag, bare: makeStrings([`<${tag} .mb=`, `></${tag}>`]) };
   return mountTemplates;
 }
+/** Host attribute names are interpolated into raw template HTML, so anything outside this
+ *  shape could close the tag and inject markup. */
+const HOST_KEY = /^[.?@]?[a-zA-Z][a-zA-Z0-9-]*$/;
+
+const hostTemplates = new Map<string, TemplateStringsArray>();
+function hostTemplate(tag: string, keys: readonly string[]): TemplateStringsArray {
+  const cacheKey = `${tag} ${keys.join(" ")}`;
+  const cached = hostTemplates.get(cacheKey);
+  if (cached) return cached;
+
+  // Only a new key set reaches this point, so validating here covers every key exactly once
+  for (const key of keys) {
+    if (!HOST_KEY.test(key)) throw new Error(`[matchbox] "${key}" is not a valid host attribute name`);
+  }
+
+  const parts = keys.map((key, index) => `${index === 0 ? `<${tag} ` : " "}${key}=`);
+  parts.push(`${keys.length === 0 ? `<${tag} ` : " "}.mb=`, ">", `</${tag}>`);
+
+  const strings = makeStrings(parts);
+  hostTemplates.set(cacheKey, strings);
+  return strings;
+}
+
 function makeStrings(parts: string[]): TemplateStringsArray {
   return Object.assign(parts, { raw: parts }) as unknown as TemplateStringsArray;
 }
@@ -325,14 +336,14 @@ export function component<A extends any[]>(
   return Object.assign(mount, { [DEF]: { render, options } }) as UnregisteredComponentDef<A, boolean>;
 }
 
-function withHost(this: TemplateResult, host: UnregisteredHostProps): TemplateResult {
+function withHost(this: TemplateResult, host: UnregisteredHostProps, children?: unknown): TemplateResult {
+  // Sorted so the order of the keys can't change template identity between renders.
+  const keys = Object.keys(host).sort();
+
   return html(
-    ensureMountTemplates().withHost,
-    host.class ?? nothing,
-    host.id ?? nothing,
-    host.style ?? nothing,
-    host.slot ?? nothing,
+    hostTemplate(ensureMountTemplates().tag, keys),
+    ...keys.map((key) => host[key]),
     this.values[0], // the payload from the bare template
-    host.children ?? nothing
+    children ?? nothing
   );
 }

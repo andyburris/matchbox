@@ -43,8 +43,9 @@ This should be very familiar if you're coming from React or Jetpack Compose, but
 
 <details>
   <summary><i>A brief introduction to declarative UI</i></summary>
+  
   Conceptually, you can think of a Matchbox component as a pure function where the inputs are the component's state, and the output is a new DOM tree. 
-  Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is only conceptual—in practice, <code>lit-html</code> surgically updates only the parts of the DOM that have changed.)
+  Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is only conceptual—in practice, `lit-html` surgically updates only the parts of the DOM that have changed.)
 
   Take this component as an example:
   ```ts
@@ -58,6 +59,7 @@ This should be very familiar if you're coming from React or Jetpack Compose, but
   If all that was possible was stateless functions, you could only change the state of the component tree by changing attributes on the top-level components. So to allow for component-scoped state, Matchbox lets you memoize state across renders using the `remember()` and `State` primitives.
 
   > *For further reading, Jetpack Compose's ["Thinking in Compose"](https://developer.android.com/develop/ui/compose/mental-model) guide is a little Android-specific in places but overall quite helpful for understanding declarative UI.*
+
 </details>
 
 
@@ -80,19 +82,30 @@ registerComponent("my-component", (label: string, num: number) => {
   `
 }, { defaults: [{ label: "" }, { num: 0 }] })
 ```
-> *Matchbox automatically determines if each parameter is an attribute or a property, and converts `camelCase` parameter names into `kebab-case` if they're attributes. In general, any `string`, `number`, or `boolean` parameters become attributes, but if you want them to be properties, you can wrap their default in `property()`*
-> 
-> *Typescript will typecheck most of this, but note the determination is driven by the **defaults** and not the render parameters. For example, if you name a default something other than the parameter name, the attribute will be the default's name. And if the default is a string, then an attribute like `attr="false"` will be the string `"false"`. But if the default is a boolean, the same attribute will result in the boolean `false`.*
 
 A component re-renders any time one of its parameters changes.
 
-You can read more about `lit-html` tagged templates in [Lit's documentation](https://lit.dev/docs/templates/overview/), but some useful shorthand to know about:
-- pass in **attributes** as HTML (in kebab-case):
-  - `<button aria-label="${label}">Click Me</button>`
-- pass in **properties** with a `.` in front of them (in camelCase):
-  - `<input type="date" .valueAsDate=${new Date()}>`
-- pass in **event listeners** with an `@` in front of them (usually kebab-case):
-  - `<button @click=${(e) => console.log("clicked", e)}></button>`
+<details>
+  <summary><code>html``</code> templates</summary>
+
+  You can read more about `lit-html` tagged templates in [Lit's documentation](https://lit.dev/docs/templates/overview/), but some useful shorthand to know about:
+  - pass in **attributes** as HTML (in kebab-case):
+    - `<button aria-label="${label}">Click Me</button>`
+  - pass in **properties** with a `.` in front of them (in camelCase):
+    - `<input type="date" .valueAsDate=${new Date()}>`
+  - pass in **event listeners** with an `@` in front of them (usually kebab-case):
+    - `<button @click=${(e) => console.log("clicked", e)}></button>`
+  
+</details>
+
+<details>
+  <summary>Attributes vs. parameters</summary>
+
+  Matchbox automatically determines if each parameter is an attribute or a property, and converts `camelCase` parameter names into `kebab-case` if they're attributes. In general, any `string`, `number`, or `boolean` parameters become attributes, but if you want them to be properties, you can wrap their default in `property()`
+
+  Typescript will typecheck most of this, but note the determination is driven by the **defaults** and not the render parameters. For example, if you name a default something other than the parameter name, the attribute will be the default's name. And if the default is a string, then an attribute like `attr="false"` will be the string `"false"`. But if the default is a boolean, the same attribute will result in the boolean `false`.
+
+</details>
 
 Once you've defined the component, you can use it in HTML or JS like any regular HTML tag, and all the usual features of web components (like [slots](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_templates_and_slots#adding_flexibility_with_slots)) apply:
 ```html
@@ -113,18 +126,23 @@ registerComponent("registered-component", () => html`<div>${UnregisteredComponen
 ```
 `component()`s are still full web components, so all the usual features, like slots and encapsulation still apply to them. The same configuration object from `registerComponent()` is also available. 
 
-If you need to add attributes or children to the host component's light DOM, you can do so with `.with()`:
+If you need to add attributes or properties to the host component, or children to its light DOM, you can do so with `.with()`:
 ```ts
 const UnregisteredComponent = component(() => html`<div><slot></slot></div>`)
-registerComponent("registered-component", () => html`<div>
-  ${UnregisteredComponent().with({ class: "unregistered", style: "background-color: red;", children: html`<div>Slotted</div>` })}
-</div>`)
+
+registerComponent("registered-component", () => {
+  return html`
+    <div>
+      ${UnregisteredComponent().with({ class: "unregistered", style: "background-color: red;", "@click": () => console.log("clicked") }, html`<div>Slotted</div>`)}
+    </div>
+  `
+)
 ```
 > *You can run `registerComponent()` with the result of a `component()` in the place of the render function. You'll be required to add defaults there if you haven't already added them to the `component()` configuration object. (You can also override anything from the `component()` configuration object in the one for `registerComponent()`)*
 
 ## State management
 In addition to the state passed in via parameters, components can have their own state. (Anytime that internal state changes, the component also re-renders.)
-Matchbox provides two core primitives to maintain state between renders: `remember()` and `State`. 
+Matchbox provides two core primitives to maintain state between renders: `remember()` and `State`. To mutate state, it's recommended to use `defineEvent`.
 
 ### `remember()`
 
@@ -172,6 +190,40 @@ function rememberState<T>(initialState: T) {
 For any functions that wrap `remember`, it's best practice to start their names with "remember", to indicate there's memoization going on.
 
 > *For React users, many hooks you're used to can be re-implemented this way. `rememberState` would be the equivalent to `useState`, and `useCallback` is equally trivial. Since it's a little more complicated, Matchbox provides `rememberLaunchedEffect`, which is roughly equivalent to `useEffect`.*
+
+### State mutation and `defineEvent()`
+In general in Matchbox, you want to pass data down the component tree as plain values, not `State` values, so users of your components don't need to install Matchbox to use them. But not having the source `State` makes it difficult to easily mutate state. You can always pass mutation callbacks into components as properties, but down deep trees that often becomes tedious.
+
+Instead, you're encouraged to use the built-in event system for mutations. Matchbox provides some helpers to make the process easier.
+
+Start by defining an event:
+```ts
+const AddItemEvent = defineEvent<Item>("add-item")
+```
+
+Then you can dispatch the event like any other `Event`:
+```ts
+component(() => {
+  const item: Item = ...;
+  return html`
+    <button @click=${(e: Event) => e.currentTarget!.dispatchEvent(AddItemEvent(item))}>
+      Click me!
+    </button>
+  `
+})
+```
+
+Then, in the component that owns the source state, you can listen for the event on one of its elements and mutate the state:
+```ts
+component(() => {
+  const [allItems, setAllItems] = remember(() => mutableStateOf<Item[]>([]))
+  return html`
+    <div ${AddItemEvent.listen((item) => setAllItems([...allItems, item]))}>
+      ...
+    </div>
+  `
+})
+```
 
 ## Features
 Matchbox includes some niceties that solve some of the main ergonomic issues with web components.

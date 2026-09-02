@@ -46,7 +46,7 @@ registerComponent("fruit-list", () => {
 
   return html`
     <li @context-request=${provideSelectedFruit}>
-      ${values.map((v) => html`${FruitListItem(v).with({ class: "f-l-i", children: html`<em>${v}</em>` })}`)}
+      ${values.map((v) => html`${FruitListItem(v).with({ class: "f-l-i" }, html`<em>${v}</em>`)}`)}
     </li>
     <button @click=${() => setValues([...values, FRUITS[values.length]])}>Add fruit</button>
     <button @click=${() => setValues(values.slice(0, -1))}>Remove fruit</button>
