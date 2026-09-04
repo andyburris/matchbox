@@ -1,4 +1,4 @@
-import { runtime } from "./reactivity";
+import { ReactivityController, runtime } from "./reactivity";
 
 // State primitive type that can be destructured or used with regular members
 export type State<T> = [T, (newValue: T) => void] & {
@@ -13,18 +13,18 @@ export type State<T> = [T, (newValue: T) => void] & {
 
 export function mutableStateOf<T>(initialValue: T): State<T> {
   let stateValue = initialValue;
-  const boundController = runtime.currentController;
-  if (!boundController) {
-    throw new Error(
-      "mutableStateOf() must be called during a component's render."
-    );
-  }
+  const subscribers = new Set<ReactivityController>();
+
+  const read = (): T => {
+    runtime.currentController?.track(subscribers);
+    return stateValue;
+  };
 
   const setter = (newValue: T) => {
-    if (stateValue !== newValue) {
-      stateValue = newValue;
-      boundController.performUpdate();
-    }
+    if (stateValue === newValue) return;
+    stateValue = newValue;
+    // Copy the subscribers in case a notified controller un/re-subscribes
+    for (const controller of [...subscribers]) controller.performUpdate();
   };
 
   const tuple = [] as unknown as State<T>;
@@ -33,12 +33,12 @@ export function mutableStateOf<T>(initialValue: T): State<T> {
 
   // Use a native property getter on the string key '0'
   Object.defineProperty(tuple, '0', {
-    get: () => stateValue,
+    get: read,
     configurable: true,
     enumerable: true
   });
   Object.defineProperty(tuple, 'value', {
-    get: () => stateValue,
+    get: read,
     configurable: true,
     enumerable: true
   });

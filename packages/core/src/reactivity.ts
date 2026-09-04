@@ -18,6 +18,8 @@ export class ReactivityController {
   private renderArgs: () => readonly unknown[];
 
   public hooksCache: HooksCacheRecord<any>[] = [];
+  private stateDeps = new Set<Set<ReactivityController>>();
+
   /* Flag to make sure we only render when the component is hydrated, even when attributes are changed beforehand. */
   public isMounted = false;
 
@@ -47,6 +49,20 @@ export class ReactivityController {
   public performUpdate(): void {
     this.withRuntime((template, root) => render(template, root));
   }
+
+    public untrackAll(): void {
+    for (const subscribers of this.stateDeps) subscribers.delete(this);
+    this.stateDeps.clear();
+  }
+
+
+
+  /** Called by a state's getter mid-render, so writing that state re-renders this component. */
+  public track(subscribers: Set<ReactivityController>): void {
+    subscribers.add(this);
+    this.stateDeps.add(subscribers);
+  }
+
 
   public handleAttributeChange(attributeName: string, value: string | null): void {
     const prop = this._propsByAttribute.get(attributeName);
@@ -90,6 +106,7 @@ export class ReactivityController {
     // Lock the runtime focus onto this specific element instance
     runtime.currentController = this;
     runtime.currentHookIndex = 0;
+    this.untrackAll();
 
     try {
       return commit(this.renderFn(...this.renderArgs()), this.root);

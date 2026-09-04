@@ -107,12 +107,13 @@ function flushMounts(): void {
 }
 
 
-function disposeHooks(controller: ReactivityController): void {
+function disposeController(controller: ReactivityController): void {
   // Run dispose on unmount for any hook that needs it
   for (const record of controller.hooksCache) {
     const value = record.value as Record<symbol, unknown> | null;
     if (value && typeof value[Disposable] === 'function') (value[Disposable] as () => void)();
   }
+  controller.untrackAll();
 }
 
 /* REGISTERED */
@@ -166,7 +167,7 @@ export function registerComponent<A extends any[], S>(
     }
 
     disconnectedCallback() {
-      disposeHooks(this._controller);
+      disposeController(this._controller);
     }
 
     mountNow(): void {
@@ -237,7 +238,7 @@ class UnregisteredMatchboxComponent extends HTMLElement {
   }
 
   disconnectedCallback(): void {
-    if (this._controller) disposeHooks(this._controller);
+    if (this._controller) disposeController(this._controller);
   }
 
   /** Only mount once connected and the payload has arrived (which can happen in either order) */

@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import { component, configureMatchbox, ContextKey, hydrate, mutableStateOf, registerComponent, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
+import { autofocusOnOpen, component, configureMatchbox, ContextKey, defineEvent, hydrate, mutableStateOf, registerComponent, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
 import baseCss from "./index.css?inline";
 
 const globalSheet = new CSSStyleSheet();
@@ -8,7 +8,6 @@ configureMatchbox({
   defaultAdoptedStylesheets: [globalSheet],
   hydrate: hydrate,
 })
-
 
 registerComponent("outer-counter", (initial: number, label: string) => {
   const [value, setValue] = remember(() => mutableStateOf(initial));
@@ -37,19 +36,34 @@ registerComponent("inner-counter", (labels: { outer: string, inner: string }, ou
 const FRUITS = ["Apple", "Banana", "Cherry", "Durian", "Elderberry", "Fig", "Grape", "Honeydew", "Jackfruit", "Kiwi"]
 const SelectedFruitContext = new ContextKey<State<string | null>>()
 
-registerComponent("fruit-list", () => {
-  const [values, setValues] = remember(() => mutableStateOf(FRUITS.slice(0, 3)))
-  const selectedValueState = remember(() => mutableStateOf<string | null>(null))
+const basket = mutableStateOf<string[]>([])
+const QueryChanged = defineEvent<string>("query-changed")
 
+registerComponent("search-field", (placeholder: string) => html`
+  <input placeholder=${placeholder} @input=${(e: Event) => {
+    const input = e.target as HTMLInputElement
+    input.dispatchEvent(QueryChanged(input.value))
+  }}>
+`, { delegatesFocus: true, defaults: [{ placeholder: "" }] })
+
+
+registerComponent("fruit-list", () => {
+  const [basketContents] = basket
+  const [query, setQuery] = remember(() => mutableStateOf(""))
+  const selectedValueState = remember(() => mutableStateOf<string | null>(null))
 
   const provideSelectedFruit = rememberContextProvider(SelectedFruitContext, () => selectedValueState, [selectedValueState.value])
 
+  const shown = FRUITS.filter((fruit) => fruit.toLowerCase().includes(query.toLowerCase()))
+
   return html`
-    <li @context-request=${provideSelectedFruit}>
-      ${values.map((v) => html`${FruitListItem(v).with({ class: "f-l-i" }, html`<em>${v}</em>`)}`)}
-    </li>
-    <button @click=${() => setValues([...values, FRUITS[values.length]])}>Add fruit</button>
-    <button @click=${() => setValues(values.slice(0, -1))}>Remove fruit</button>
+    <button popovertarget="fruit-search">${basketContents.length} fruit${basketContents.length ? "s" : ""} in basket</button>
+    <div popover id="fruit-search" ${autofocusOnOpen()}>
+      <search-field autofocus placeholder="Fruit name" ${QueryChanged.listen(setQuery)}></search-field>
+      <div @context-request=${provideSelectedFruit}>
+        ${shown.map((v) => html`${FruitListItem(v).with({ class: "f-l-i" }, html`<em>${v}</em>`)}`)}
+      </div>
+    </div>
   `
 })
 
@@ -65,6 +79,7 @@ const FruitListItem = component((fruit: string) => {
     >
       ${fruit}
       <slot></slot>
+      <button @click=${() => basket.setValue([...basket.value, fruit])}>Add to basket</button>
     </div>
   `
 }, { defaults: [{ fruit: "" }] })
