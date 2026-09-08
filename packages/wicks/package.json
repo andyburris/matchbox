@@ -1,0 +1,36 @@
+{
+  "name": "@matchbox-wc/wicks",
+  "description": "Headless, accessible component behaviors for the web platform",
+  "version": "0.1.0",
+  "license": "MIT",
+  "author": "Andy Burris",
+  "repository": { "type": "git", "url": "git+https://github.com/andyburris/matchbox.git", "directory": "packages/wicks" },
+  "homepage": "https://github.com/andyburris/matchbox",
+  "keywords": ["web-components", "headless", "accessibility", "aria", "wai-aria", "lit-html", "directives"],
+  "publishConfig": { "access": "public" },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "vite build",
+    "prepack": "cp ../../LICENSE.md . && vite build"
+  },
+  "peerDependencies": {
+    "lit-html": "~3.3.3"
+  },
+  "devDependencies": {
+    "lit-html": "3.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1",
+    "vite-plugin-dts": "^5.0.3"
+  },
+  "sideEffects": false
+}

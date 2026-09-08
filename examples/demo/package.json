@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "matchbox-wc": "*",
+    "@matchbox-wc/wicks": "*",
     "lit-html": "3.3.3"
   },
   "devDependencies": {

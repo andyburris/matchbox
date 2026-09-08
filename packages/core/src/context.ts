@@ -1,103 +1,63 @@
 import { runtime } from "./reactivity";
-import { Disposable, remember } from "./remember";
+import { remember } from "./remember";
+import { mutableStateOf, type State } from "./state";
 
-// @ts-ignore unused generic
-export class ContextKey<T> {
-  symbol: symbol;
-  constructor(key?: string | symbol) {
-    this.symbol = typeof key ==="symbol" ? key : Symbol(key);
-  }
+declare const CONTEXT_TYPE: unique symbol;
+export type Context<T> = symbol & { readonly [CONTEXT_TYPE]: T };
+
+export function defineContext<T>(description: string): Context<T> {
+  return Symbol(description) as Context<T>;
 }
 
-export function rememberContextProvider<T>(
-  key: ContextKey<T>,
-  valueCalculation: () => T,
-  dependencies: any[]
-): (e: Event) => void {
-  
-  const subscribers = remember(() => new Set<ContextUpdater<T>>());
-  const currentValue = valueCalculation();
+type ContextRequest<T> = Event & {
+  readonly context: Context<T>;
+  readonly callback: (value: State<T>, unsubscribe?: () => void) => void;
+  readonly subscribe?: boolean;
+};
 
-  // Push changes down (per wc-context) whenever our dependency keys mutate
-  remember(() => {
-    subscribers.forEach((cb) => cb(currentValue));
-  }, dependencies);
+/**
+ * Provides `value` to every descendant consuming `context`, as a handler to attach to
+ * `@context-request`.
+ */
+export function rememberContextProvider<T>(context: Context<T>, value: T): (e: Event) => void {
+  const state = remember(() => mutableStateOf(value));
+  state.setValue(value); // Ignored unless it actually changed
 
-  // Return the standard protocol event handler
-  return provideContext(key, currentValue, (callback) => {
-    subscribers.add(callback);
-    return () => subscribers.delete(callback);
+  return remember(() => (e: Event) => {
+    const request = e as ContextRequest<T>;
+    if (request.context !== context) return;
+
+    // Halt event bubbling immediately so nested context scopes do not overwrite each other
+    request.stopPropagation();
+    request.callback(state);
   });
 }
 
-export type ContextUpdater<T> = (newValue: T) => void;
-export function provideContext<T>(key: ContextKey<T>, currentValue: T, onSubscribe?: (updater: ContextUpdater<T>) => () => void) {
-  return (e: Event) => {
-    const customEvent = e as CustomEvent;
-    if (customEvent.detail.context !== key.symbol) return;
-    
-    // Halt event bubbling immediately so nested context scopes do not overwrite each other
-    customEvent.stopPropagation();
-
-    const { callback, subscribe } = customEvent.detail;
-
-    // 1. Instantly fulfill the initial frame request synchronously
-    callback(currentValue);
-
-    // 2. If the child requests a multi-delivery subscription, hook it up
-    if (subscribe && typeof onSubscribe === 'function') {
-      const unsubscribe = onSubscribe(callback);
-      // Return the cleanup method straight into the event loop payload
-      customEvent.detail.unsubscribe = unsubscribe;
-    }
-  };
+/** 
+ * The nearest value provided for `context`.
+ * For ergonomic purposes, this is typed as a plain T,
+ * but it will be undefined if there's no provider above the component. */
+export function rememberContextConsumer<T>(context: Context<T>): T {
+  return remember(() => consumeContext(context))!.value;
 }
 
-export type ContextValue<T> = {
-  readonly value: T;
-  [Disposable]: () => void;
-}
-
-export function rememberContextConsumer<T>(key: ContextKey<T>): T {
-  return remember(() => consumeContext(key)).value
-}
-
-export function consumeContext<T>(key: ContextKey<T>): ContextValue<T> {
+function consumeContext<T>(context: Context<T>): State<T> | undefined {
   const controller = runtime.currentController;
   if (!controller) throw new Error("consumeContext() must be called inside a component execution context.");
 
-  let resolvedValue: T | undefined;
-  let remoteUnsubscribe: (() => void) | null = null;
+  let resolvedState: State<T> | undefined;
 
-  // Standard WC CustomEvent payload format
-  const event = new CustomEvent('context-request', {
+  // Standard WC protocol payload: own properties on the event, not a CustomEvent detail
+  const event = Object.assign(new Event('context-request', {
     bubbles: true,
     composed: true, // Breaks through Shadow DOM boundaries
-    detail: {
-      context: key.symbol,
-      subscribe: true,
-      callback: (newValue: T) => {
-        resolvedValue = newValue;
-        // Trigger a re-render pass on the child if the parent updates later
-        if (remoteUnsubscribe) controller.performUpdate();
-      }
-    }
+  }), {
+    context,
+    subscribe: false,
+    callback: (state: State<T>) => { resolvedState = state; }
   });
 
   // Fires synchronously up the DOM tree
   controller.host.dispatchEvent(event);
-  remoteUnsubscribe = (event.detail as any).unsubscribe || null;
-
-  const value = {
-    [Disposable]: () => remoteUnsubscribe?.()
-  };
-
-  // Use a native property getter on the string key 'value'
-  Object.defineProperty(value, 'value', {
-    get: () => resolvedValue,
-    configurable: true,
-    enumerable: true
-  });
-
-  return value as any;
+  return resolvedState;
 }

@@ -1,5 +1,6 @@
+import { combobox, tabs } from "@matchbox-wc/wicks";
 import { html } from "lit-html";
-import { autofocusOnOpen, component, configureMatchbox, ContextKey, defineEvent, hydrate, mutableStateOf, registerComponent, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
+import { autofocusOnOpen, component, configureMatchbox, defineContext, defineEvent, hydrate, mutableStateOf, registerComponent, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
 import baseCss from "./index.css?inline";
 
 const globalSheet = new CSSStyleSheet();
@@ -34,7 +35,7 @@ registerComponent("inner-counter", (labels: { outer: string, inner: string }, ou
 
 
 const FRUITS = ["Apple", "Banana", "Cherry", "Durian", "Elderberry", "Fig", "Grape", "Honeydew", "Jackfruit", "Kiwi"]
-const SelectedFruitContext = new ContextKey<State<string | null>>()
+const SelectedFruitContext = defineContext<State<string | null>>("selected-fruit")
 
 const basket = mutableStateOf<string[]>([])
 const QueryChanged = defineEvent<string>("query-changed")
@@ -52,7 +53,7 @@ registerComponent("fruit-list", () => {
   const [query, setQuery] = remember(() => mutableStateOf(""))
   const selectedValueState = remember(() => mutableStateOf<string | null>(null))
 
-  const provideSelectedFruit = rememberContextProvider(SelectedFruitContext, () => selectedValueState, [selectedValueState.value])
+  const provideSelectedFruit = rememberContextProvider(SelectedFruitContext, selectedValueState)
 
   const shown = FRUITS.filter((fruit) => fruit.toLowerCase().includes(query.toLowerCase()))
 
@@ -84,19 +85,96 @@ const FruitListItem = component((fruit: string) => {
   `
 }, { defaults: [{ fruit: "" }] })
 
-registerComponent("hydration-probe", () => {
-  const [open, setOpen] = remember(() => mutableStateOf(false))
-  const [text, setText] = remember(() => mutableStateOf(""))
+registerComponent("tabs-demo", () => {
+  const [selected, setSelected] = remember(() => mutableStateOf<string | null>(null))
 
   return html`
-    <details ?open=${open} @toggle=${(e: Event) => setOpen((e.target as HTMLDetailsElement).open)}>
-      <summary>Dropdown</summary>
-      ${open ? html`<p>open branch</p>` : html`<em>closed branch</em>`}
-    </details>
-    <label>
-      Text
-      <input .value=${text} @input=${(e: Event) => setText((e.target as HTMLInputElement).value)}>
-    </label>
-    <p .title="${text.length} characters long">state: "${text}"</p>
+    <style>
+      [role="tablist"] { display: flex; gap: 0.25rem; }
+      [role="tablist"][aria-orientation="vertical"] { flex-direction: column; }
+      [role="tab"][aria-selected="true"] { font-weight: 700; text-decoration: underline; }
+      [role="tabpanel"] { padding: 0.5rem; border: 1px solid; }
+      .vertical { display: flex; gap: 1rem; align-items: start; }
+    </style>
+
+    <p>Controlled, horizontal, automatic activation</p>
+    <div ${tabs.root({ value: selected })}
+         @tabs-change=${(e: Event) => setSelected((e as CustomEvent<string>).detail)}>
+      <div ${tabs.list()}>
+        <button ${tabs.tab("account")}>Account</button>
+        <button ${tabs.tab("password")}>Password</button>
+        <button ${tabs.tab("team")}>Team</button>
+      </div>
+      <div ${tabs.panel("account")}><p>Account settings</p></div>
+      <div ${tabs.panel("password")}><p>Change your password</p></div>
+      <div ${tabs.panel("team")}><p>Manage your team</p></div>
+    </div>
+    <p>selected: ${selected ?? "(none yet — falls back to the first tab)"}</p>
+
+    <p>Uncontrolled, vertical, manual activation</p>
+    <div class="vertical" ${tabs.root({ orientation: "vertical", activation: "manual" })}>
+      <div ${tabs.list()}>
+        <button ${tabs.tab("one")}>One</button>
+        <button ${tabs.tab("two")}>Two</button>
+        <button ${tabs.tab("three")}>Three</button>
+      </div>
+      <div ${tabs.panel("one")}><p>First panel</p></div>
+      <div ${tabs.panel("two")}><p>Second panel</p></div>
+      <div ${tabs.panel("three")}><p>Third panel</p></div>
+    </div>
   `
 })
+
+
+const comboboxStyles = html`
+  <style>
+    [role="combobox"] { width: 12rem; }
+    [role="listbox"] { list-style: none; margin: 0; padding: 0; border: 1px solid; width: 12rem; max-height: 9rem; overflow-y: auto; }
+    [role="listbox"]:not([data-open]) { display: none; }
+    [role="listbox"][data-empty]::after { content: "No matches"; display: block; padding: 0.25rem; opacity: 0.6; }
+    [role="option"] { padding: 0.25rem; cursor: default; }
+    [role="option"][data-highlighted] { background: Highlight; color: HighlightText; }
+    [role="option"][aria-selected="true"]::after { content: " ✓"; }
+  </style>
+`
+
+registerComponent("fruit-picker", () => {
+  const [query, setQuery] = remember(() => mutableStateOf(""))
+  const [selected, setSelected] = remember(() => mutableStateOf<string | null>(null))
+
+  const shown = combobox.utils.rank(query, FRUITS)
+
+  return html`
+    ${comboboxStyles}
+    <div ${combobox.root({ value: selected, autoHighlight: true })}
+         @combobox-change=${(e: Event) => {
+           const fruit = (e as CustomEvent<string | null>).detail
+           setSelected(fruit)
+           // Backfilling the input is the consumer's call — wicks never touches its value
+           setQuery(fruit ?? "")
+         }}>
+      <label ${combobox.label()}>Fruit</label>
+      <input ${combobox.input()} .value=${query}
+             @input=${(e: Event) => setQuery((e.target as HTMLInputElement).value)}>
+      <ul ${combobox.list()}>
+        ${shown.map((fruit) => html`<li ${combobox.option(fruit)}>${fruit}</li>`)}
+      </ul>
+    </div>
+    <p>selected: ${selected ?? "(none)"}</p>
+  `
+})
+
+registerComponent("command-palette", () => html`
+  ${comboboxStyles}
+  <div ${combobox.root({ rankAndFilterUncontrolledItems: combobox.utils.score, autoHighlight: true, fillInputOnSelect: true })}>
+    <label ${combobox.label()}>Command</label>
+    <input ${combobox.input()} placeholder="Type to filter">
+    <ul ${combobox.list()}>
+      <li ${combobox.option("open")}>Open file</li>
+      <li ${combobox.option("save")}>Save file</li>
+      <li ${combobox.option("close-window")}>Close window</li>
+      <li ${combobox.option("split")}>Split editor right</li>
+      <li ${combobox.option("reopen")}>Reopen closed editor</li>
+    </ul>
+  </div>
+`)
