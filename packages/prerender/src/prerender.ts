@@ -58,7 +58,7 @@ export async function prerender(rawHTML: string, baseDir: string): Promise<strin
   // }
 
   const hydratable = collectHydratableRoots(window.document as any);
-  const hydrationConfigured = (window as unknown as { __matchboxHydration?: boolean }).__matchboxHydration;
+  const hydrationConfigured: boolean = (window as unknown as { __matchboxHydrationRuntime?: any }).__matchboxHydrationRuntime;
   if (hydratable.length > 0 && !hydrationConfigured) {
     throw new Error(
       `[matchbox] ${hydratable.length} prerendered component${hydratable.length === 1 ? "" : "s"} need${hydratable.length === 1 ? "s" : ""} hydration. ` +

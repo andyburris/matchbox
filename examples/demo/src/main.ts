@@ -1,6 +1,6 @@
 import { combobox, tabs } from "@matchbox-wc/wicks";
 import { html } from "lit-html";
-import { autofocusOnOpen, component, configureMatchbox, defineContext, defineEvent, hydrate, mutableStateOf, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
+import { autofocusOnOpen, component, configureMatchbox, defineContext, defineEvent, hydrate, type MutableState, mutableStateOf, remember, rememberContextConsumer, rememberContextProvider } from "matchbox-wc";
 import baseCss from "./index.css?inline";
 
 const globalSheet = new CSSStyleSheet();
@@ -35,7 +35,7 @@ const InnerCounter = component((labels: { outer: string, inner: string }, outerN
 
 
 const FRUITS = ["Apple", "Banana", "Cherry", "Durian", "Elderberry", "Fig", "Grape", "Honeydew", "Jackfruit", "Kiwi"]
-const SelectedFruitContext = defineContext<State<string | null>>("selected-fruit")
+const SelectedFruitContext = defineContext<MutableState<string | null>>("selected-fruit")
 
 const basket = mutableStateOf<string[]>([])
 const QueryChanged = defineEvent<string>("query-changed")

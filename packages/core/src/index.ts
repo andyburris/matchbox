@@ -7,5 +7,5 @@ export { autofocusOnOpen } from "./focus"
 export { hydrate, type HydrateDOM } from "./hydrate"
 export { property, type DefaultsFor, type PropDef, type PropertyOnly } from "./props"
 export { Disposable, remember, rememberHost, type RememberOptions } from "./remember"
-export { mutableStateOf, type State } from "./state"
+export { mutableStateOf, type State, type MutableState } from "./state"
 

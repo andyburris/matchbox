@@ -42,7 +42,7 @@ and use in `index.html`:
 
 ## Components
 Matchbox lets you write components as functions rather than classes.
-> This should be very familiar if you're coming from React or Jetpack Compose, but may be less so [if you're coming from](#declarative-ui-intro) Vanilla JS, or class-based components like Lit or old React. 
+> This should be very familiar if you're coming from React or Jetpack Compose, but may be less so [if you're coming from](#a-brief-outline-of-functional-ui) Vanilla JS, or class-based components like Lit or old React. 
 
 To create a new component, use the `component()` function:
 ```ts
@@ -51,7 +51,7 @@ const MyComponent = component((label: string, num: number) => {
 })
 ```
 
-`component()` takes in a render function, which takes any parameters and produces an [``` html`` ``` tagged template](#lit-html-templates). It creates an anonymous web component, which can be used inside other ``` html`` ``` templates:
+`component()` takes in a render function, which takes any parameters and produces an [``` html`` ``` tagged template](#html-templates). It creates an anonymous web component, which can be used inside other ``` html`` ``` templates:
 ```ts
 const ChildComponent = component((text: string) => html`<p>${text}</p>`)
 const ParentComponent = component(() => html`<div>${ChildComponent("hello world")}</div>`)
@@ -72,9 +72,15 @@ component((text: string) => html`<p>${text}</p>`)
 
 **More information:**
 - `component()` takes an optional configuration object. See [this appendix](#component-configuration).
-- If you haven't used Lit's ``` html`` ``` templates before, see [this appendix](#lit-html-templates).
-- `.register()` automatically determines if each parameter is an attribute or a property. See [this appendix](#attributes-vs-properties).
-- When creating an instance of a component using `${ChildComponent("hello world")}`, you can set attributes or properties (e.g. `class`) on it, or add children to its light DOM, using the `.with()` method. See [this appendix](#host-element-attributes).
+- When creating an instance of a component using `${ChildComponent("hello world")}`, you can set attributes or properties (e.g. `class`) on it, or add children to its light DOM, using the `.with()` method. See [this appendix](#setting-attributes-properties-or-children-on-a-component).
+- If you haven't used Lit's ``` html`` ``` templates before, see [this appendix](#html-templates).
+
+### Properties and attributes
+For registered components, each parameter becomes a property that you can set on the component, either inside a Lit template with `.property=${}`, or in vanilla JS with `.property = `.
+
+Matchbox determines if each parameter should also be an attribute, which can be set in regular HTML. It will convert `camelCase` parameter names into `kebab-case` if they're attributes. In general, any `string`, `number`, or `boolean` parameters become attributes, but if you want them to only be properties, you can wrap their default in `property()`
+
+> Note that properties and attributes are driven by the **defaults**, not the parameters of the render function. For example, if you name a default something other than the parameter name, the property (and attribute) will be the default's name. Additionally, if the default is a string, then an attribute like `attr="false"` will pass the string `"false"` into the render function. But if the default is a boolean, the same attribute will pass in the boolean `false`. (Typescript should check most of this.)
 
 
 ## State management
@@ -101,7 +107,10 @@ component((num: number) => {
 > For React users, `remember` is almost identical conceptually to `useMemo`.
 
 ### `State`
-`State<T>` holds a value of type `T`. You can access it with `.value`, and set it with `.setValue()`.  `.value` returns a plain `T`—you can use it like any other plain value. Setting the value rerenders any components that rely on it.
+`State<T>` holds a value of type `T`. You can access it with `.value` (or by destructuring it).
+`MutableState<T>` is similar, but it also has a `.setValue()` method. Setting the value rerenders any components that rely on it.
+
+Create a `MutableState<T>` using `mutableStateOf()`. (To get a `State<T>`, just downcast a `MutableState<T>`.)
 ```ts
 component((initial: number) => {
   const [num, setNum] = remember(() => mutableStateOf(initial))
@@ -111,7 +120,7 @@ component((initial: number) => {
   `
 })
 ```
-In most cases, you can destructure `State` like a tuple. The only exception is if a callback (`Promise`, `requestAnimationFrame`, window event handler, etc.) needs to use updates from a future render—the destrucured values will be stale, while the `State` returned from `remember()` will always hold the value from the most recent render.
+`.value` returns a plain `T`—you can use it like any other plain value. You can use the plain value in most cases. The only exception is if a callback (`Promise`, `requestAnimationFrame`, window event handler, etc.) needs to use updates from a future render—the destrucured values will be stale, while the `State` returned from `remember()` will always hold the value from the most recent render.
 
 > Inside the render function, you almost always want to create a `State` inside of a `remember()` block. It's possible to create it outside of one, but it will get recalculated and reset on every render in that case, making it mostly useless.
 
@@ -188,8 +197,9 @@ component(
 Per-component `adoptedStyleSheets` are quite useful. You can split your CSS into smaller sections and only import the relevant ones for each component, use Lit's ``` css`` ```  tagged template, or anything else.
 
 ### Prerendering
-By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox-wc/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (e.g. `localStorage`), or randomness (e.g. `crypto.randomUUID()`<!--, `Date.now()`-->), or a closed shadow root won't be prerendered. 
+By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox-wc/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (e.g. `localStorage`) or randomness (e.g. `crypto.randomUUID()`, `Date.now()`) in its render function won't be prerendered. 
 
+<!-- Closed shadow roots won't be prerendered. -->
 <!-- (Unless you override it by adding `prerender: "force"` to your component options. No promises after that.)-->
 
 It can be used on the command line with:
@@ -250,7 +260,7 @@ Web components have great support for this with `<slot>`s, but passing data betw
 
 First, somewhere outside of both components (probably at the top level of a file), create a context with `defineContext<T>()`. `T` can be any type, including a `State`.
 ```ts
-const DemoContext = defineContext<State<string | null>>("optional description");
+const DemoContext = defineContext<MutableState<string | null>>("optional description");
 ```
 
 To provide that context in the parent component, attach the handler returned by `rememberContextProvider` to the `@context-request` event.
@@ -297,7 +307,57 @@ In general, you shouldn't be manually reading or manipulating DOM in Matchbox, i
 
 So, in a render function, you can use `rememberHost()` to get a handle to the host element of the component.
 
-## Philosophy
+## Appendix
+
+### Component configuration
+The `component()` function takes an optional configuration object. Some of the parameters include:
+- [`shadowRootMode`](https://developer.mozilla.org/en-US/docs/Web/API/ShadowRoot/mode)
+- [`delegatesFocus`](https://developer.mozilla.org/en-US/docs/Web/API/ShadowRoot/delegatesFocus)
+- [`adoptedStyleSheets`](#default-stylesheets)
+
+
+### Setting attributes, properties, or children on a `${Component()}`
+If you need to add attributes or properties to the host element of a component, or children to its light DOM, you can do so with `.with()`:
+```ts
+const AnonymousComponent = component(() => html`<div><slot></slot></div>`)
+
+component(() => {
+  return html`
+    <div>
+      ${AnonymousComponent().with({ class: "anonymous", style: "background-color: red;", "@click": () => console.log("clicked") }, html`<div>Slotted</div>`)}
+    </div>
+  `
+})
+```
+
+### ``` html`` ``` templates
+You can read more about `lit-html` tagged templates in [Lit's documentation](https://lit.dev/docs/templates/overview/), but some useful shorthand to know about:
+- pass in **attributes** as HTML (in kebab-case):
+  - `<button aria-label="${label}">Click Me</button>`
+- pass in **properties** with a `.` in front of them (in camelCase):
+  - `<input type="date" .valueAsDate=${new Date()}>`
+- pass in **event listeners** with an `@` in front of them (usually kebab-case):
+  - `<button @click=${(e) => console.log("clicked", e)}></button>`
+
+
+### A brief outline of functional UI
+Conceptually, you can think of a Matchbox component as a pure function where the inputs are the component's state, and the output is a new DOM tree. 
+Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is only conceptual—in practice, `lit-html` surgically updates only the parts of the DOM that have changed.)
+
+Take this component as an example:
+```ts
+component((label: string, num: number) => {
+  console.log("rerendered!")
+  return html`<p>${label}: ${num}</p>`
+})
+```
+For each instance of this component, any time that the `label` or `num` attributes get changed (whether that's manually in the DOM or JS, or by a parent web component), it will run the function, print `"rerendered!"` to the console, and update the internal DOM of the instance to reflect the new state.
+
+If all that was possible was stateless functions, you could only change the state of the component tree by changing attributes on the top-level components. So to allow for component-scoped state, Matchbox lets you memoize state across renders using the `remember()` and `State` primitives.
+
+> For further reading, Jetpack Compose's ["Thinking in Compose"](https://developer.android.com/develop/ui/compose/mental-model) guide is a little Android-specific in places but overall quite helpful for understanding declarative UI.
+
+### Philosophy
 Matchbox aims to make web components ergonomic enough to create large-scale web apps with.
 
 Currently, web components seem to mostly be viewed as:
@@ -312,78 +372,3 @@ So Matchbox's API defaults to that. (Though it's still easy to make components e
 
 It does all this while being extremely small and performant, keeping all the benefits of web components being so close to the platform.
 (In fact, it's easier to use best practices for web components. Matchbox encourages HTML-like component construction with contexts, and has features like auto-generating Declarative Shadow DOM, so components are progressively enhanced by default rather than only running on the client side.)
-
-## Appendix
-
-<details id="declarative-ui-intro">
-  <summary><i>A brief outline of functional UI</i></summary>
-  
-  Conceptually, you can think of a Matchbox component as a pure function where the inputs are the component's state, and the output is a new DOM tree. 
-  Any time a piece of state changes, the function gets rerun, so the component's DOM is always in sync with the state. (This is only conceptual—in practice, `lit-html` surgically updates only the parts of the DOM that have changed.)
-
-  Take this component as an example:
-  ```ts
-  component((label: string, num: number) => {
-    console.log("rerendered!")
-    return html`<p>${label}: ${num}</p>`
-  })
-  ```
-  For each instance of this component, any time that the `label` or `num` attributes get changed (whether that's manually in the DOM or JS, or by a parent web component), it will run the function, print `"rerendered!"` to the console, and update the internal DOM of the instance to reflect the new state.
-
-  If all that was possible was stateless functions, you could only change the state of the component tree by changing attributes on the top-level components. So to allow for component-scoped state, Matchbox lets you memoize state across renders using the `remember()` and `State` primitives.
-
-  > For further reading, Jetpack Compose's ["Thinking in Compose"](https://developer.android.com/develop/ui/compose/mental-model) guide is a little Android-specific in places but overall quite helpful for understanding declarative UI.
-
-</details>
-
-<details id="lit-html-templates">
-  <summary><i><code>html``</code> templates</i></summary>
-
-  You can read more about `lit-html` tagged templates in [Lit's documentation](https://lit.dev/docs/templates/overview/), but some useful shorthand to know about:
-  - pass in **attributes** as HTML (in kebab-case):
-    - `<button aria-label="${label}">Click Me</button>`
-  - pass in **properties** with a `.` in front of them (in camelCase):
-    - `<input type="date" .valueAsDate=${new Date()}>`
-  - pass in **event listeners** with an `@` in front of them (usually kebab-case):
-    - `<button @click=${(e) => console.log("clicked", e)}></button>`
-  
-</details>
-
-<details id="attributes-vs-properties">
-  <summary><i>Attributes vs. properties</i></summary>
-
-  Matchbox automatically determines if each parameter is an attribute or a property, and converts `camelCase` parameter names into `kebab-case` if they're attributes. In general, any `string`, `number`, or `boolean` parameters become attributes, but if you want them to be properties, you can wrap their default in `property()`
-
-  Typescript will typecheck most of this, but note the determination is driven by the **defaults** and not the render parameters. For example, if you name a default something other than the parameter name, the attribute will be the default's name. And if the default is a string, then an attribute like `attr="false"` will be the string `"false"`. But if the default is a boolean, the same attribute will result in the boolean `false`.
-
-</details>
-
-<details id="component-configuration">
-
-  <summary><i>Component configuration</i></summary>
-
-  The `component()` function takes an optional configuration object. Some of the parameters include:
-  - [`shadowRootMode`](https://developer.mozilla.org/en-US/docs/Web/API/ShadowRoot/mode)
-  - [`delegatesFocus`](https://developer.mozilla.org/en-US/docs/Web/API/ShadowRoot/delegatesFocus)
-  - [`adoptedStyleSheets`](#default-stylesheets)
-
-</details>
-
-<details id="host-element-attributes">
-
-  <summary><i>Setting attributes, properties, or children on a <code>${Component()}</code></i></summary>
-
-  If you need to add attributes or properties to the host element of a component, or children to its light DOM, you can do so with `.with()`:
-  ```ts
-  const AnonymousComponent = component(() => html`<div><slot></slot></div>`)
-
-  component(() => {
-    return html`
-      <div>
-        ${AnonymousComponent().with({ class: "anonymous", style: "background-color: red;", "@click": () => console.log("clicked") }, html`<div>Slotted</div>`)}
-      </div>
-    `
-  })
-  ```
-
-</details>

@@ -1,4 +1,5 @@
 import { type HydrateDOM } from "./hydrate";
+import { runtime } from "./reactivity";
 
 
 export type MatchboxOptions = {
@@ -17,5 +18,5 @@ export function configureMatchbox(options: Partial<MatchboxOptions>) {
   activeMatchboxOptions = { ...activeMatchboxOptions, ...options };
 
   // flag for prerender build step to pick up
-  if (activeMatchboxOptions.hydrate) (globalThis as any).__matchboxHydration = true;
+  if (activeMatchboxOptions.hydrate) (globalThis as any).__matchboxHydrationRuntime = runtime;
 }

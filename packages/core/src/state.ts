@@ -1,17 +1,10 @@
 import { ReactivityController, runtime } from "./reactivity";
 
 // State primitive type that can be destructured or used with regular members
-export type State<T> = [T, (newValue: T) => void] & {
-  // 0: T,
-  value: T,
-  // 1: (newValue: T) => void,
-  setValue: (newValue: T) => void,
+export type State<T> = readonly [T, ...unknown[]] & { readonly value: T }
+export type MutableState<T> = readonly [T, (newValue: T) => void] & { readonly value: T, readonly setValue: (newValue: T) => void }
 
-  // length: 2,
-  // [Symbol.iterator](): IterableIterator<T | ((newValue: T) => void)>;
-};
-
-export function mutableStateOf<T>(initialValue: T): State<T> {
+export function mutableStateOf<T>(initialValue: T): MutableState<T> {
   let stateValue = initialValue;
   const subscribers = new Set<ReactivityController>();
 
@@ -27,9 +20,10 @@ export function mutableStateOf<T>(initialValue: T): State<T> {
     for (const controller of [...subscribers]) controller.performUpdate();
   };
 
-  const tuple = [] as unknown as State<T>;
-  tuple["setValue"] = setter;
+  const tuple: unknown[] = [];
   tuple[1] = setter;
+  const named = tuple as unknown as Record<string, unknown>;
+  named["setValue"] = setter;
 
   // Use a native property getter on the string key '0'
   Object.defineProperty(tuple, '0', {
@@ -44,5 +38,5 @@ export function mutableStateOf<T>(initialValue: T): State<T> {
   });
 
 
-  return tuple;
+  return tuple as unknown as MutableState<T>;
 }
