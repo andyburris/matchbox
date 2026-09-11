@@ -1,6 +1,6 @@
 import { combobox, tabs } from "@matchbox-wc/wicks";
 import { html } from "lit-html";
-import { autofocusOnOpen, component, configureMatchbox, defineContext, defineEvent, hydrate, mutableStateOf, registerComponent, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
+import { autofocusOnOpen, component, configureMatchbox, defineContext, defineEvent, hydrate, mutableStateOf, remember, rememberContextConsumer, rememberContextProvider, type State } from "matchbox-wc";
 import baseCss from "./index.css?inline";
 
 const globalSheet = new CSSStyleSheet();
@@ -10,19 +10,19 @@ configureMatchbox({
   hydrate: hydrate,
 })
 
-registerComponent("outer-counter", (initial: number, label: string) => {
+component((initial: number, label: string) => {
   const [value, setValue] = remember(() => mutableStateOf(initial));
   
   return html`
     <div>
       <p>${label}: ${value}</p>
-      <inner-counter .labels=${{ outer: label, inner: "Inner" }} .outerNum=${value}></inner-counter>
+      ${InnerCounter({ outer: label, inner: "Inner" }, value)}
       <button @click=${() => setValue(value + 1)}>Increment outer</button>
     </div>
   `;
-}, { defaults: [{ initial: 4 }, { label: "" }] })
+}).register("outer-counter", [{ initial: 4 }, { label: "" }])
 
-registerComponent("inner-counter", (labels: { outer: string, inner: string }, outerNum: number) => {
+const InnerCounter = component((labels: { outer: string, inner: string }, outerNum: number) => {
   const { outer: outerLabel, inner: innerLabel } = labels
   // const [innerLabel, outerLabel] = ["Inner hardcoded", "Outer hardcoded"]
   const [innerValue, setInnerValue] = remember(() => mutableStateOf(0), []);
@@ -31,7 +31,7 @@ registerComponent("inner-counter", (labels: { outer: string, inner: string }, ou
     <p>${outerLabel} + ${innerLabel}: ${outerNum + innerValue}</p>
     <button @click=${() => setInnerValue(innerValue + 1)}>Increment inner</button>
   `
-}, { defaults: [{ labels: { outer: "Outer", inner: "Inner" } }, { outerNum: 4 }] })
+}).register("inner-counter", [{ labels: { outer: "Outer", inner: "Inner" } }, { outerNum: 4 }])
 
 
 const FRUITS = ["Apple", "Banana", "Cherry", "Durian", "Elderberry", "Fig", "Grape", "Honeydew", "Jackfruit", "Kiwi"]
@@ -40,15 +40,15 @@ const SelectedFruitContext = defineContext<State<string | null>>("selected-fruit
 const basket = mutableStateOf<string[]>([])
 const QueryChanged = defineEvent<string>("query-changed")
 
-registerComponent("search-field", (placeholder: string) => html`
+component((placeholder: string) => html`
   <input placeholder=${placeholder} @input=${(e: Event) => {
     const input = e.target as HTMLInputElement
     input.dispatchEvent(QueryChanged(input.value))
   }}>
-`, { delegatesFocus: true, defaults: [{ placeholder: "" }] })
+`, { delegatesFocus: true }).register("search-field", [{ placeholder: "" }])
 
 
-registerComponent("fruit-list", () => {
+component(() => {
   const [basketContents] = basket
   const [query, setQuery] = remember(() => mutableStateOf(""))
   const selectedValueState = remember(() => mutableStateOf<string | null>(null))
@@ -66,7 +66,7 @@ registerComponent("fruit-list", () => {
       </div>
     </div>
   `
-})
+}).register("fruit-list")
 
 const FruitListItem = component((fruit: string) => {
   const [selectedFruit, setSelectedFruit] = rememberContextConsumer(SelectedFruitContext)
@@ -83,9 +83,9 @@ const FruitListItem = component((fruit: string) => {
       <button @click=${() => basket.setValue([...basket.value, fruit])}>Add to basket</button>
     </div>
   `
-}, { defaults: [{ fruit: "" }] })
+})
 
-registerComponent("tabs-demo", () => {
+component(() => {
   const [selected, setSelected] = remember(() => mutableStateOf<string | null>(null))
 
   return html`
@@ -123,7 +123,7 @@ registerComponent("tabs-demo", () => {
       <div ${tabs.panel("three")}><p>Third panel</p></div>
     </div>
   `
-})
+}).register("tabs-demo", [])
 
 
 const comboboxStyles = html`
@@ -138,7 +138,7 @@ const comboboxStyles = html`
   </style>
 `
 
-registerComponent("fruit-picker", () => {
+component(() => {
   const [query, setQuery] = remember(() => mutableStateOf(""))
   const [selected, setSelected] = remember(() => mutableStateOf<string | null>(null))
 
@@ -162,9 +162,9 @@ registerComponent("fruit-picker", () => {
     </div>
     <p>selected: ${selected ?? "(none)"}</p>
   `
-})
+}).register("fruit-picker")
 
-registerComponent("command-palette", () => html`
+component(() => html`
   ${comboboxStyles}
   <div ${combobox.root({ rankAndFilterUncontrolledItems: combobox.utils.score, autoHighlight: true, fillInputOnSelect: true })}>
     <label ${combobox.label()}>Command</label>
@@ -177,4 +177,4 @@ registerComponent("command-palette", () => html`
       <li ${combobox.option("reopen")}>Reopen closed editor</li>
     </ul>
   </div>
-`)
+`).register("command-palette")

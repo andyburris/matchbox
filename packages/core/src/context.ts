@@ -38,7 +38,7 @@ export function rememberContextProvider<T>(context: Context<T>, value: T): (e: E
  * For ergonomic purposes, this is typed as a plain T,
  * but it will be undefined if there's no provider above the component. */
 export function rememberContextConsumer<T>(context: Context<T>): T {
-  return remember(() => consumeContext(context))!.value;
+  return remember(() => consumeContext(context))?.value!;
 }
 
 function consumeContext<T>(context: Context<T>): State<T> | undefined {

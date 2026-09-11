@@ -1,197 +1,61 @@
 import { html, nothing, TemplateResult } from 'lit-html';
 import { activeMatchboxOptions } from './config';
-import { DefaultsFor, readDefaults } from './props';
+import { DefaultsFor, PropDef, readDefaults } from './props';
 import { ReactivityController } from './reactivity';
 import { Disposable } from "./remember";
 
 export type ComponentRenderFn = (...args: any[]) => TemplateResult;
-
 export interface ComponentOptions { adoptedStyleSheets?: CSSStyleSheet[], shadowRootMode?: ShadowRootMode, delegatesFocus?: boolean }
-export type RegisterOptions<A extends any[]> = ComponentOptions & { defaults: DefaultsFor<A> };
-/** A component with no parameters has nothing to declare defaults for, so both 
- * the options object and the defaults inside it become optional. */
-type OptionsArgs<A extends any[]> = A extends []
-  ? [options?: Partial<RegisterOptions<[]>>]
-  : [options: RegisterOptions<A>];
 
-type Mountable = HTMLElement & { mountNow(): void };
-const pendingMounts: Mountable[] = [];
-let flushing = false;
+/** A function that mounts a registered component. */
+export type RegisteredComponent<A extends any[], T extends string> =
+  ((...args: A) => HostElementTemplate) & { readonly tagName: T };
 
-/* COMMON */
-function attachRoot(host: HTMLElement, options: ComponentOptions): ShadowRoot {
-  const root = host.shadowRoot ?? host.attachShadow({ mode: options.shadowRootMode ?? 'open', delegatesFocus: options.delegatesFocus ?? false });
-  root.adoptedStyleSheets = options.adoptedStyleSheets ?? activeMatchboxOptions.defaultAdoptedStylesheets;
-  return root;
+/** A function that mounts an anonymous component, which can also be registered as a custom element. */
+export type ComponentDef<A extends any[]> = ((...args: A) => HostElementTemplate) & {
+  /** Adds this component to the custom element registry as `tagName`, and returns a function
+   *  that renders it with its arguments bound as attributes or properties. */
+  register<T extends `${string}-${string}`>(tagName: T, ...defaults: DefaultsArgs<A>): RegisteredComponent<A, T>;
+};
+
+/* ANONYMOUS */
+
+export function component<A extends any[]>(
+  render: (...args: A) => TemplateResult,
+  options: ComponentOptions = {}
+): ComponentDef<A> {
+  const mount = mountFn(ensureAnonymousComponentTag, [".mb"], (args) => [
+    { render, options, args } satisfies MountPayload
+  ]);
+
+  return Object.assign(mount, {
+    register<T extends `${string}-${string}`>(tagName: T, defaults?: readonly Record<string, unknown>[]) {
+      const props = defineComponent(tagName, render as ComponentRenderFn, options, defaults ?? []);
+      const bindings = props.map(bindingFor);
+
+      const mounted = mountFn(() => tagName, bindings, (args) =>
+        props.map((prop, index) => {
+          if (args[index] !== undefined) return args[index];
+          // Removing an attribute falls back to the default; a property has to be given it
+          return prop.usesAttribute ? nothing : prop.value;
+        })
+      );
+
+      return Object.assign(mounted, { tagName });
+    }
+  }) as ComponentDef<A>;
 }
 
-function firstRender(controller: ReactivityController): void {
-  controller.isMounted = true;
-
-  // Prerendered DOM is already what the first render would produce, so bind Lit's parts to it rather than rebuilding it. 
-  // If hydration fails, we can just render normally (hydration only touches nodes it has already committed to keeping).
-  if (controller.root.firstChild) {
-    if (controller.performHydrate()) {
-      controller.root.querySelectorAll('[data-mb-style]').forEach((node) => node.remove());
-      return;
-    }
-    console.warn(`[matchbox] <${controller.root.host.localName}> couldn't hydrate. Re-rendering the entire component, but any user interaction before JS loaded will be discarded`, controller.root.host);
-  }
-
-  controller.root.replaceChildren();
-  controller.performUpdate();
-}
-
-function parentOf(node: Node): Node | null {
-  return node.parentNode ?? (node as Partial<ShadowRoot>).host ?? null;
-}
-
-/** Get the depth of an element in the document (memoized), passing through shadow boundaries. */
-function shadowDepth(element: Element, known: Map<Node, number>): number {
-  const chain: Node[] = [];
-  let node: Node | null = element;
-  let depth = -1;
-
-  while (node) {
-    const cached = known.get(node);
-    if (cached !== undefined) {
-      depth = cached;
-      break;
-    }
-    chain.push(node);
-    node = parentOf(node);
-  }
-
-  // Fill in everything we walked past, from the highest ancestor back down
-  for (let i = chain.length - 1; i >= 0; i--) {
-    known.set(chain[i], ++depth);
-  }
-
-  return depth;
-}
-
-// queue the first render until 
-function queueFirstRender(element: Mountable): void {
-  pendingMounts.push(element);
-
-  // if this is the first time any matchbox component has rendered, kick off the flushing task
-  if (flushing || pendingMounts.length > 1) return;
-  flushing = true;
-  queueMicrotask(flushMounts);
-}
-
-function flushMounts(): void {
-  try {
-    // Rendering a parent connects its children, which queue during this loop
-    while (pendingMounts.length > 0) {
-      const batch = pendingMounts.splice(0);
-
-      if (batch.length > 1) {
-        const depths = new Map<Node, number>();
-        for (const element of batch) shadowDepth(element, depths);
-        batch.sort((a, b) => depths.get(a)! - depths.get(b)!);
-      }
-
-      for (const element of batch) {
-        // One component throwing shouldn't stop the rest of the batch from mounting
-        try {
-          element.mountNow();
-        } catch (error) {
-          console.error(`[matchbox] <${element.localName}> threw during its first render`, element, error);
-        }
-      }
-    }
-  } finally {
-    flushing = false;
-  }
-}
-
-
-function disposeController(controller: ReactivityController): void {
-  // Run dispose on unmount for any hook that needs it
-  for (const record of controller.hooksCache) {
-    const value = record.value as Record<symbol, unknown> | null;
-    if (value && typeof value[Disposable] === 'function') (value[Disposable] as () => void)();
-  }
-  controller.untrackAll();
-}
-
-/* REGISTERED */
-
-/** Blocks inference from the options argument, so the parameters alone decide the types. */
-type NoInferA<T> = [T][T extends any ? 0 : never];
-
-/** Options a definition already carries can be partly overridden; a plain render fn needs the full set. */
-type SourceOptionsArgs<A extends any[], S> =
-  S extends UnregisteredComponentDef<A, true> ? [options?: Partial<RegisterOptions<A>>] : OptionsArgs<A>;
-
-export function registerComponent<A extends any[], S>(
-  tagName: `${string}-${string}`,
-  source: S & ((...args: A) => TemplateResult),
-  ...rest: SourceOptionsArgs<NoInferA<A>, S>
-): void {
-  const definition = (source as Partial<UnregisteredComponentDef<any[], boolean>>)[DEF];
-  const renderFn = definition?.render ?? (source as ComponentRenderFn);
-  const options = rest[0] as (ComponentOptions & { defaults?: readonly Record<string, unknown>[] }) | undefined;
-
-  // Registration options win over the definition's own, so a component library can ship
-  // defaults and styling that the consumer is still free to adjust when they name the tag.
-  const settings: ComponentOptions & { defaults?: readonly Record<string, unknown>[] } =
-    { ...definition?.options, ...options };
-
-  const props = readDefaults(settings.defaults ?? []);
-
-  class MinimalReactiveElement extends HTMLElement {
-    static observedAttributes = props.filter((p) => p.usesAttribute).map((p) => p.attributeName);
-    private _controller: ReactivityController;
-
-    constructor() {
-      super();
-      const root = attachRoot(this, settings);
-
-      // Initialize the core controller layer
-      this._controller = new ReactivityController(this, root, renderFn, props);
-    }
-
-    attributeChangedCallback(name: string, _oldValue: string | null, value: string | null): void {
-      this._controller.handleAttributeChange(name, value);
-    }
-
-
-    connectedCallback(): void {
-      if (this._controller.isMounted) {
-        this._controller.performUpdate();
-      } else {
-        queueFirstRender(this);
-      }
-    }
-
-    disconnectedCallback() {
-      disposeController(this._controller);
-    }
-
-    mountNow(): void {
-      if (this.isConnected && !this._controller.isMounted) {
-        firstRender(this._controller);
-      }
-    }
-  }
-
-  customElements.define(tagName, MinimalReactiveElement);
-}
-
-/* UNREGISTERED */
-
-/** The information necessary to populate an anonymous UnregisteredMatchboxComponent */
+/** The information necessary to populate an AnonymousMatchboxComponent */
 type MountPayload = {
   readonly render: ComponentRenderFn;
   readonly options: ComponentOptions;
   readonly args: readonly unknown[];
 };
 
-export type UnregisteredHostProps = Record<string, unknown>;
-export type MountedUnregisteredTemplate = TemplateResult & {
-  with(host: UnregisteredHostProps, children?: unknown): TemplateResult;
+export type HostElementProps = Record<string, unknown>;
+export type HostElementTemplate = TemplateResult & {
+  with(host: HostElementProps, children?: unknown): TemplateResult;
 };
 
 
@@ -199,7 +63,7 @@ function sameArgs(a: readonly unknown[], b: readonly unknown[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
-class UnregisteredMatchboxComponent extends HTMLElement {
+class AnonymousMatchboxComponent extends HTMLElement {
   private _controller: ReactivityController | null = null;
   private _payload: MountPayload | null = null;
 
@@ -259,92 +123,231 @@ class UnregisteredMatchboxComponent extends HTMLElement {
   }
 }
 
+// The tag for anonymous components. Resolved lazily so configureMatchbox() has a chance to rename the element first
+let anonymousComponentTag: string | null = null;
+function ensureAnonymousComponentTag(): string {
+  if (anonymousComponentTag) return anonymousComponentTag;
 
-// The string template for mb-component Lit will fill
-// Start as null and set with ensureMountTemplates() 
-// to give configureMatchbox() time to run and possibly change the name of mb-component
-type MountTemplates = { readonly bare: TemplateStringsArray; readonly tag: string };
-let mountTemplates: MountTemplates | null = null;
-function ensureMountTemplates(): MountTemplates {
-  if (mountTemplates) return mountTemplates;
-
-  const tag = activeMatchboxOptions.componentTag;
-  if (!customElements.get(tag)) customElements.define(tag, UnregisteredMatchboxComponent);
-
-  mountTemplates = { tag, bare: makeStrings([`<${tag} .mb=`, `></${tag}>`]) };
-  return mountTemplates;
+  anonymousComponentTag = activeMatchboxOptions.componentTag;
+  if (!customElements.get(anonymousComponentTag)) customElements.define(anonymousComponentTag, AnonymousMatchboxComponent);
+  return anonymousComponentTag;
 }
-/** Host attribute names are interpolated into raw template HTML, so anything outside this
- *  shape could close the tag and inject markup. */
-const HOST_KEY = /^[.?@]?[a-zA-Z][a-zA-Z0-9-]*$/;
 
-const hostTemplates = new Map<string, TemplateStringsArray>();
-function hostTemplate(tag: string, keys: readonly string[]): TemplateStringsArray {
-  const cacheKey = `${tag} ${keys.join(" ")}`;
-  const cached = hostTemplates.get(cacheKey);
+function bindingFor(prop: PropDef): string {
+  if (!prop.usesAttribute) return `.${prop.name}`;
+  return typeof prop.value === "boolean" 
+    ? `?${prop.attributeName}` // for booleans, remove the attribute when false rather than setting "false"
+    : prop.attributeName;
+}
+
+/** Checks that each binding is valid attribute HTML, and won't close the tag and inject markup. */
+const BINDING_NAME_VALIDATOR = /^[.?@]?[a-zA-Z][a-zA-Z0-9-]*$/;
+
+const elementTemplates = new Map<string, TemplateStringsArray>();
+
+/** Builds `<tag name=${} ...>${children}</tag>` for Lit to fill. */
+function elementTemplate(tag: string, names: readonly string[], withChildren: boolean): TemplateStringsArray {
+  const cacheKey = `${tag} ${withChildren} ${names.join(" ")}`;
+  const cached = elementTemplates.get(cacheKey);
   if (cached) return cached;
 
-  // Only a new key set reaches this point, so validating here covers every key exactly once
-  for (const key of keys) {
-    if (!HOST_KEY.test(key)) throw new Error(`[matchbox] "${key}" is not a valid host attribute name`);
+  // Check that there are no duplicate attributes--the HTML parser would drop one and thus desync every part after it
+  if (new Set(names).size !== names.length) {
+    throw new Error(`[matchbox] <${tag}> was given the same attribute twice: ${names.join(" ")}`);
   }
 
-  const parts = keys.map((key, index) => `${index === 0 ? `<${tag} ` : " "}${key}=`);
-  parts.push(`${keys.length === 0 ? `<${tag} ` : " "}.mb=`, ">", `</${tag}>`);
+  // Only a new shape reaches this point, so validating here covers every name exactly once
+  for (const name of names) {
+    if (!BINDING_NAME_VALIDATOR.test(name)) throw new Error(`[matchbox] "${name}" is not a valid attribute or property name`);
+  }
 
-  const strings = makeStrings(parts);
-  hostTemplates.set(cacheKey, strings);
+  const parts = names.map((name, index) => `${index === 0 ? `<${tag} ` : " "}${name}=`);
+  parts.push(names.length === 0 ? `<${tag}>` : ">");
+  if (withChildren) parts.push(`</${tag}>`);
+  else parts[parts.length - 1] += `</${tag}>`;
+
+  const strings = Object.assign(parts, { raw: parts }) as unknown as TemplateStringsArray;
+  elementTemplates.set(cacheKey, strings);
   return strings;
 }
 
-function makeStrings(parts: string[]): TemplateStringsArray {
-  return Object.assign(parts, { raw: parts }) as unknown as TemplateStringsArray;
-}
+/** Creates a function that produces a host element to be used inside a ${} in a Lit template */
+function mountFn<A extends any[]>(
+  getTag: () => string,
+  bindings: readonly string[],
+  getValues: (args: readonly unknown[]) => readonly unknown[]
+): (...args: A) => HostElementTemplate {
+  return (...args: A) => {
+    const tag = getTag();
+    const values = getValues(args);
 
-const DEF = Symbol("matchbox.componentDef");
+    const result = html(elementTemplate(tag, bindings, false), ...values) as HostElementTemplate;
 
-/** A function that generates an mb-component, with the information on how to render it attached. */
-export type UnregisteredComponentDef<A extends any[], HasDefaults extends boolean> =
-  ((...args: A) => MountedUnregisteredTemplate) & {
-    readonly [DEF]: {
-      readonly render: (...args: A) => TemplateResult;
-      readonly options: HasDefaults extends true ? RegisterOptions<A> : ComponentOptions;
+    result.with = (host, children) => {
+      // Sorted so the order of the keys can't change template identity between renders.
+      const keys = Object.keys(host).sort();
+      return html(
+        elementTemplate(tag, [...keys, ...bindings], true),
+        ...keys.map((key) => host[key]),
+        ...values,
+        children ?? nothing
+      );
     };
-  };
 
-export function component<A extends any[]>(
-  render: (...args: A) => TemplateResult,
-  options: RegisterOptions<A>
-): UnregisteredComponentDef<A, true>;
-export function component<A extends any[]>(
-  render: (...args: A) => TemplateResult,
-  options?: ComponentOptions
-): UnregisteredComponentDef<A, false>;
-export function component<A extends any[]>(
-  render: (...args: A) => TemplateResult,
-  options: ComponentOptions & { defaults?: readonly Record<string, unknown>[] } = {}
-): UnregisteredComponentDef<A, boolean> {
-  const mount = (...args: A): MountedUnregisteredTemplate => {
-    const result = html(
-      ensureMountTemplates().bare,
-      { render, options, args } satisfies MountPayload
-    ) as MountedUnregisteredTemplate;
-
-    result.with = withHost;
     return result;
   };
-
-  return Object.assign(mount, { [DEF]: { render, options } }) as UnregisteredComponentDef<A, boolean>;
 }
 
-function withHost(this: TemplateResult, host: UnregisteredHostProps, children?: unknown): TemplateResult {
-  // Sorted so the order of the keys can't change template identity between renders.
-  const keys = Object.keys(host).sort();
+/* REGISTER */
+type DefaultsArgs<A extends any[]> = A extends []
+  ? [defaults?: DefaultsFor<[]>] // A component with no parameters has nothing to declare defaults for.
+  : [defaults: DefaultsFor<A>];
 
-  return html(
-    hostTemplate(ensureMountTemplates().tag, keys),
-    ...keys.map((key) => host[key]),
-    this.values[0], // the payload from the bare template
-    children ?? nothing
-  );
+function defineComponent(
+  tagName: string,
+  renderFn: ComponentRenderFn,
+  options: ComponentOptions,
+  defaults: readonly Record<string, unknown>[]
+): PropDef[] {
+  const props = readDefaults(defaults);
+
+  class MinimalReactiveElement extends HTMLElement {
+    static observedAttributes = props.filter((p) => p.usesAttribute).map((p) => p.attributeName);
+    private _controller: ReactivityController;
+
+    constructor() {
+      super();
+      const root = attachRoot(this, options);
+
+      // Initialize the core controller layer
+      this._controller = new ReactivityController(this, root, renderFn, props);
+    }
+
+    attributeChangedCallback(name: string, _oldValue: string | null, value: string | null): void {
+      this._controller.handleAttributeChange(name, value);
+    }
+
+    connectedCallback(): void {
+      if (this._controller.isMounted) {
+        this._controller.performUpdate();
+      } else {
+        queueFirstRender(this);
+      }
+    }
+
+    disconnectedCallback() {
+      disposeController(this._controller);
+    }
+
+    mountNow(): void {
+      if (this.isConnected && !this._controller.isMounted) {
+        firstRender(this._controller);
+      }
+    }
+  }
+
+  customElements.define(tagName, MinimalReactiveElement);
+  return props;
+}
+
+/* COMMON */
+type Mountable = HTMLElement & { mountNow(): void };
+const pendingMounts: Mountable[] = [];
+let flushing = false;
+
+function attachRoot(host: HTMLElement, options: ComponentOptions): ShadowRoot {
+  const root = host.shadowRoot ?? host.attachShadow({ mode: options.shadowRootMode ?? 'open', delegatesFocus: options.delegatesFocus ?? false });
+  root.adoptedStyleSheets = options.adoptedStyleSheets ?? activeMatchboxOptions.defaultAdoptedStylesheets;
+  return root;
+}
+
+function firstRender(controller: ReactivityController): void {
+  controller.isMounted = true;
+
+  // Prerendered DOM is already what the first render would produce, so bind Lit's parts to it rather than rebuilding it. 
+  // If hydration fails, we can just render normally (hydration only touches nodes it has already committed to keeping).
+  if (controller.root.firstChild) {
+    if (controller.performHydrate()) {
+      controller.root.querySelectorAll('[data-mb-style]').forEach((node) => node.remove());
+      return;
+    }
+    console.warn(`[matchbox] <${controller.root.host.localName}> couldn't hydrate. Re-rendering the entire component, but any user interaction before JS loaded will be discarded`, controller.root.host);
+  }
+
+  controller.root.replaceChildren();
+  controller.performUpdate();
+}
+
+function parentOf(node: Node): Node | null {
+  return node.parentNode ?? (node as Partial<ShadowRoot>).host ?? null;
+}
+
+/** Get the depth of an element in the document (memoized), passing through shadow boundaries. */
+function shadowDepth(element: Element, known: Map<Node, number>): number {
+  const chain: Node[] = [];
+  let node: Node | null = element;
+  let depth = -1;
+
+  while (node) {
+    const cached = known.get(node);
+    if (cached !== undefined) {
+      depth = cached;
+      break;
+    }
+    chain.push(node);
+    node = parentOf(node);
+  }
+
+  // Fill in everything we walked past, from the highest ancestor back down
+  for (let i = chain.length - 1; i >= 0; i--) {
+    known.set(chain[i], ++depth);
+  }
+
+  return depth;
+}
+
+// queue the first render until all the Matchbox elements are finished mounting
+function queueFirstRender(element: Mountable): void {
+  pendingMounts.push(element);
+
+  // if this is the first time any matchbox component has rendered, kick off the flushing task
+  if (flushing || pendingMounts.length > 1) return;
+  flushing = true;
+  queueMicrotask(flushMounts);
+}
+
+function flushMounts(): void {
+  try {
+    // Rendering a parent connects its children, which queue during this loop
+    while (pendingMounts.length > 0) {
+      const batch = pendingMounts.splice(0);
+
+      if (batch.length > 1) {
+        const depths = new Map<Node, number>();
+        for (const element of batch) shadowDepth(element, depths);
+        batch.sort((a, b) => depths.get(a)! - depths.get(b)!);
+      }
+
+      for (const element of batch) {
+        // One component throwing shouldn't stop the rest of the batch from mounting
+        try {
+          element.mountNow();
+        } catch (error) {
+          console.error(`[matchbox] <${element.localName}> threw during its first render`, element, error);
+        }
+      }
+    }
+  } finally {
+    flushing = false;
+  }
+}
+
+
+function disposeController(controller: ReactivityController): void {
+  // Run dispose on unmount for any hook that needs it
+  for (const record of controller.hooksCache) {
+    const value = record.value as Record<symbol, unknown> | null;
+    if (value && typeof value[Disposable] === 'function') (value[Disposable] as () => void)();
+  }
+  controller.untrackAll();
 }

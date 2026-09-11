@@ -1,4 +1,4 @@
-export { component, registerComponent, type ComponentOptions, type ComponentRenderFn, type UnregisteredComponentDef, type UnregisteredHostProps, type MountedUnregisteredTemplate, type RegisterOptions } from "./component"
+export { component, type ComponentDef, type ComponentOptions, type HostElementProps, type HostElementTemplate, type RegisteredComponent } from "./component"
 export { configureMatchbox, type MatchboxOptions } from "./config"
 export { type Context, defineContext, rememberContextConsumer, rememberContextProvider } from "./context"
 export { rememberLaunchedEffect, type EffectCallback } from "./effect"
