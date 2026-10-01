@@ -1,4 +1,5 @@
 import { html, nothing, TemplateResult } from 'lit-html';
+import { type DirectiveResult } from 'lit-html/directive.js';
 import { activeMatchboxOptions } from './config';
 import { DefaultsFor, PropDef, readDefaults } from './props';
 import { ReactivityController } from './reactivity';
@@ -53,7 +54,10 @@ type MountPayload = {
   readonly args: readonly unknown[];
 };
 
-export type HostElementProps = Record<string, unknown>;
+export type HostElementProps = Record<string, unknown> & {
+  /* Applies a list of Lit directives (e.g. MyEvent.listen(...)) to this host element */
+  $directives?: readonly DirectiveResult[];
+};
 export type HostElementTemplate = TemplateResult & {
   with(host: HostElementProps, children?: unknown): TemplateResult;
 };
@@ -140,6 +144,9 @@ function bindingFor(prop: PropDef): string {
     : prop.attributeName;
 }
 
+/** A binding with no name, which Lit turns into an ElementPart for a directive to attach to. */
+const ELEMENT_BINDING = "";
+
 /** Checks that each binding is valid attribute HTML, and won't close the tag and inject markup. */
 const BINDING_NAME_VALIDATOR = /^[.?@]?[a-zA-Z][a-zA-Z0-9-]*$/;
 
@@ -151,17 +158,19 @@ function elementTemplate(tag: string, names: readonly string[], withChildren: bo
   const cached = elementTemplates.get(cacheKey);
   if (cached) return cached;
 
+  const named = names.filter((name) => name !== ELEMENT_BINDING);
+
   // Check that there are no duplicate attributes--the HTML parser would drop one and thus desync every part after it
-  if (new Set(names).size !== names.length) {
-    throw new Error(`[matchbox] <${tag}> was given the same attribute twice: ${names.join(" ")}`);
+  if (new Set(named).size !== named.length) {
+    throw new Error(`[matchbox] <${tag}> was given the same attribute twice: ${named.join(" ")}`);
   }
 
   // Only a new shape reaches this point, so validating here covers every name exactly once
-  for (const name of names) {
+  for (const name of named) {
     if (!BINDING_NAME_VALIDATOR.test(name)) throw new Error(`[matchbox] "${name}" is not a valid attribute or property name`);
   }
 
-  const parts = names.map((name, index) => `${index === 0 ? `<${tag} ` : " "}${name}=`);
+  const parts = names.map((name, index) => `${index === 0 ? `<${tag} ` : " "}${name === ELEMENT_BINDING ? "" : `${name}=`}`);
   parts.push(names.length === 0 ? `<${tag}>` : ">");
   if (withChildren) parts.push(`</${tag}>`);
   else parts[parts.length - 1] += `</${tag}>`;
@@ -183,12 +192,13 @@ function mountFn<A extends any[]>(
 
     const result = html(elementTemplate(tag, bindings, false), ...values) as HostElementTemplate;
 
-    result.with = (host, children) => {
+    result.with = ({ $directives = [], ...attributes }, children) => {
       // Sorted so the order of the keys can't change template identity between renders.
-      const keys = Object.keys(host).sort();
+      const keys = Object.keys(attributes).sort();
       return html(
-        elementTemplate(tag, [...keys, ...bindings], true),
-        ...keys.map((key) => host[key]),
+        elementTemplate(tag, [...keys, ...$directives.map(() => ELEMENT_BINDING), ...bindings], true),
+        ...keys.map((key) => attributes[key]),
+        ...$directives,
         ...values,
         children ?? nothing
       );

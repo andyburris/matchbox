@@ -329,6 +329,7 @@ component(() => {
   `
 })
 ```
+`.with()` accepts any property name that would be a valid attribute in an [``` html`` ``` template](#html-templates), including `@listeners` and `.properties`. To attach [Lit directives](https://lit.dev/docs/templates/custom-directives/), such as [Matchbox's event helpers](#state-mutation-and-defineevent), use `$derived`.
 
 ### ``` html`` ``` templates
 You can read more about `lit-html` tagged templates in [Lit's documentation](https://lit.dev/docs/templates/overview/), but some useful shorthand to know about:
