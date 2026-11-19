@@ -92,6 +92,9 @@ function deepQueryTag(root: ParentNode, tagName: string, found: Element[] = []):
  */
 export const RAW_CSS = Symbol.for('matchbox.rawCSS');
 
+/** Set on sheets filled by replace(), whose rules arrive after a hydrating component drops its prerendered copy. */
+export const FILLED_ASYNC = Symbol.for('matchbox.filledAsync');
+
 export function captureStyleSheetSources(window: Window): void {
   const prototype = window.CSSStyleSheet.prototype;
 
@@ -104,6 +107,7 @@ export function captureStyleSheetSources(window: Window): void {
   const originalReplace = prototype.replace;
   prototype.replace = function (text) {
     (this as any)[RAW_CSS] = text;
+    (this as any)[FILLED_ASYNC] = true;
     return originalReplace.call(this, text);
   };
 }

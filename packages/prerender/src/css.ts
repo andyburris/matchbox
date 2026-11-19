@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { RAW_CSS } from './fix-happy-dom.js';
+import { FILLED_ASYNC, RAW_CSS } from './fix-happy-dom.js';
 import { collectShadowRoots } from "./dom.js";
 
 /** Adopted stylesheets are a JS construct, so they don't survive serialization. Reference
@@ -26,6 +26,12 @@ export async function inlineAdoptedStyleSheets(
   for (const [sheet, count] of rootsBySheet) {
     const css: string | undefined = (sheet as any)[RAW_CSS];
     if (css === undefined) continue;   // built with insertRule — no trustworthy source text
+
+    if ((sheet as any)[FILLED_ASYNC]) console.warn(
+      `[matchbox] a stylesheet adopted by ${count} prerendered shadow root(s) was filled with replace() ` +
+      `(e.g. by fetchStyleSheet). Hydrating components drop their prerendered styles before an async ` +
+      `sheet loads, so they'll flash unstyled. Use styleSheet() with an inlined import instead.`
+    );
 
     const totalBytes = css.length * count;
     const href = totalBytes > inlineLimit 

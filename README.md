@@ -176,25 +176,28 @@ component(() => {
 ## Features
 Matchbox includes a handful of features that solve some of the main ergonomic issues with web components.
 
-### Default stylesheets
-Matchbox allows you to configure default stylesheets that apply to all created components (e.g. resets, Tailwind). At the top level of your Javascript, get your CSS as a string and run:
+### Default and per-component stylesheets
+Matchbox allows you to configure default stylesheets that apply to all created components (e.g. resets, Tailwind). At the top level of your Javascript, create a CSSStyleSheet. 
 
+You can:
+1. turn any string (e.g. a Vite `import css from "./index.css?inline"`) into a stylesheet with `styleSheet()`,
+2. load a `.css` file at runtime with `fetchStyleSheet()` (not recommended with prerendering, since components render unstyled until it loads), or 
+3. create one in-code using the [``` css`` ``` template](#html-templates).
+
+Then run, e.g.:
 ```ts
-const css = ... // import with Vite, construct using Lit's css`` template, write manually, etc.
-
-const globalSheet = new CSSStyleSheet();
-globalSheet.replaceSync(css)
-configureMatchbox({ defaultAdoptedStylesheets: [globalSheet] })
+const sheet: CSSStyleSheet = fetchStyleSheet("/assets/index.css")
+configureMatchbox({ defaultAdoptedStylesheets: [sheet] })
 ```
 
 You can override the `adoptedStyleSheets` for any component like so:
 ```ts
 component(
   () => html`<p>Component</p>`, 
-  { adoptedStyleSheets: [] },
+  { adoptedStyleSheets: [css`p { margin: 0 }`] },
 )
 ```
-Per-component `adoptedStyleSheets` are quite useful. You can split your CSS into smaller sections and only import the relevant ones for each component, use Lit's ``` css`` ```  tagged template, or anything else.
+Per-component `adoptedStyleSheets` are quite useful. You can split your CSS into smaller sections and only use the relevant ones for each component.
 
 ### Prerendering
 By default, Matchbox renders components' `innerHTML` at runtime (per usual with web components). For users with poor internet connection or with Javascript turned off, this can result in long stretches with no content. `@matchbox-wc/prerender` contains a script that renders the initial state of your components into [Declarative Shadow DOM](https://web.dev/articles/declarative-shadow-dom). Any component that uses browser-only APIs (e.g. `localStorage`) or randomness (e.g. `crypto.randomUUID()`, `Date.now()`) in its render function won't be prerendered. 
@@ -329,7 +332,7 @@ component(() => {
   `
 })
 ```
-`.with()` accepts any property name that would be a valid attribute in an [``` html`` ``` template](#html-templates), including `@listeners` and `.properties`. To attach [Lit directives](https://lit.dev/docs/templates/custom-directives/), such as [Matchbox's event helpers](#state-mutation-and-defineevent), use `$derived`.
+`.with()` accepts any property name that would be a valid attribute in an [``` html`` ``` template](#html-templates), including `@listeners` and `.properties`. To attach [Lit directives](https://lit.dev/docs/templates/custom-directives/), such as [Matchbox's event helpers](#state-mutation-and-defineevent), use `$directives`.
 
 ### ``` html`` ``` templates
 You can read more about `lit-html` tagged templates in [Lit's documentation](https://lit.dev/docs/templates/overview/), but some useful shorthand to know about:
@@ -339,6 +342,10 @@ You can read more about `lit-html` tagged templates in [Lit's documentation](htt
   - `<input type="date" .valueAsDate=${new Date()}>`
 - pass in **event listeners** with an `@` in front of them (usually kebab-case):
   - `<button @click=${(e) => console.log("clicked", e)}></button>`
+
+You can also use our ``` css`` ``` template to construct `CSSStyleSheet`s. (Note that it's slightly different than Lit's template of the same name, which outputs their custom result type.)
+
+For syntax highlighting for both of those templates, it's very helpful to install the Lit extension if the editor you use has one.
 
 
 ### A brief outline of functional UI

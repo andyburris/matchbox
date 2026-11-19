@@ -65,7 +65,7 @@ export type EventDefinition<T> = {
   listen(handler: (detail: T, event: CustomEvent<T>) => void): DirectiveResult;
 };
 
-export function defineEvent<T>(type: string, init: EventInit = DEFAULT_INIT): EventDefinition<T> {
+export function defineEvent<T = void>(type: string, init: EventInit = DEFAULT_INIT): EventDefinition<T> {
   const create = (detail: T): CustomEvent<T> => new CustomEvent(type, { ...init, detail });
 
   return Object.assign(create, {
